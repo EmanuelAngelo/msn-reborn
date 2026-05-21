@@ -8,7 +8,6 @@ import { getMe, login as loginRequest, register as registerRequest, logout as lo
 import { getMusicStatus, listContacts, spotifyConnectUrl, syncSpotify } from './services/msn'
 import { createPresenceSocket } from './services/presenceSocket'
 
-
 const profile = ref(null)
 const music = ref(null)
 const contacts = ref([])
@@ -16,7 +15,10 @@ const selectedContact = ref(null)
 const mode = ref('login')
 const loading = ref(false)
 const error = ref('')
+
 let presenceSocket = null
+let spotifySyncInterval = null
+let spotifySyncRunning = false
 
 const form = ref({
   email: '',
@@ -25,6 +27,9 @@ const form = ref({
   password: '',
 })
 
+function contactUserId(item) {
+  return item?.contact_profile?.user_id || String(item?.contact || '')
+}
 
 function applyPresenceUpdate(updatedProfile) {
   if (!updatedProfile?.user_id) return
@@ -38,9 +43,7 @@ function applyPresenceUpdate(updatedProfile) {
   }
 
   contacts.value = contacts.value.map((item) => {
-    const contactUserId = item.contact_profile?.user_id || String(item.contact || '')
-
-    if (contactUserId !== updatedProfile.user_id) return item
+    if (contactUserId(item) !== updatedProfile.user_id) return item
 
     return {
       ...item,
@@ -52,17 +55,41 @@ function applyPresenceUpdate(updatedProfile) {
     }
   })
 
-  if (selectedContact.value) {
-    const selectedUserId = selectedContact.value.contact_profile?.user_id || String(selectedContact.value.contact || '')
-    if (selectedUserId === updatedProfile.user_id) {
-      selectedContact.value = {
-        ...selectedContact.value,
-        contact_profile: {
-          ...selectedContact.value.contact_profile,
-          status: updatedProfile.status,
-          last_seen_at: updatedProfile.last_seen_at,
-        },
-      }
+  if (selectedContact.value && contactUserId(selectedContact.value) === updatedProfile.user_id) {
+    selectedContact.value = {
+      ...selectedContact.value,
+      contact_profile: {
+        ...selectedContact.value.contact_profile,
+        status: updatedProfile.status,
+        last_seen_at: updatedProfile.last_seen_at,
+      },
+    }
+  }
+}
+
+function applyMusicStatusUpdate(payload) {
+  const userId = payload?.user_id
+  const musicPayload = payload?.music
+
+  if (!userId || !musicPayload) return
+
+  if (profile.value?.user_id === userId) {
+    music.value = musicPayload
+  }
+
+  contacts.value = contacts.value.map((item) => {
+    if (contactUserId(item) !== userId) return item
+
+    return {
+      ...item,
+      music_status: musicPayload,
+    }
+  })
+
+  if (selectedContact.value && contactUserId(selectedContact.value) === userId) {
+    selectedContact.value = {
+      ...selectedContact.value,
+      music_status: musicPayload,
     }
   }
 }
@@ -77,6 +104,7 @@ function connectPresence() {
     presenceSocket = createPresenceSocket({
       onReady: applyPresenceUpdate,
       onPresenceUpdated: applyPresenceUpdate,
+      onMusicStatusUpdated: applyMusicStatusUpdate,
       onClose(event) {
         if (profile.value && event.code === 4001) {
           error.value = 'Presença em tempo real recusada: token inválido. Faça login novamente.'
@@ -96,12 +124,58 @@ function closePresence() {
   }
 }
 
+async function syncSpotifySilently() {
+  if (!profile.value || spotifySyncRunning) return
+
+  spotifySyncRunning = true
+
+  try {
+    const updatedMusic = await syncSpotify()
+    music.value = updatedMusic
+
+    // Mantém a lista de contatos sincronizada caso algum contato tenha atualizado pelo mesmo ciclo.
+    // O WebSocket de presença já faz isso em tempo real, mas este refresh leve ajuda quando a aba estava fechada.
+    contacts.value = await listContacts()
+
+    if (selectedContact.value) {
+      const selectedId = selectedContact.value.id
+      selectedContact.value = contacts.value.find((item) => item.id === selectedId) || selectedContact.value
+    }
+  } catch (err) {
+    // 400 = Spotify ainda não conectado. Isso não deve incomodar o usuário durante o auto-sync.
+    if (![400, 401, 403, 429].includes(err.response?.status)) {
+      console.warn('Falha ao sincronizar Spotify automaticamente.', err)
+    }
+  } finally {
+    spotifySyncRunning = false
+  }
+}
+
+function startSpotifyAutoSync() {
+  stopSpotifyAutoSync()
+
+  // Primeira tentativa rápida e depois atualização periódica.
+  syncSpotifySilently()
+
+  spotifySyncInterval = window.setInterval(() => {
+    syncSpotifySilently()
+  }, 30000)
+}
+
+function stopSpotifyAutoSync() {
+  if (spotifySyncInterval) {
+    window.clearInterval(spotifySyncInterval)
+    spotifySyncInterval = null
+  }
+}
+
 async function loadDashboard() {
   profile.value = await getMe()
   contacts.value = await listContacts()
   music.value = await getMusicStatus()
   if (!selectedContact.value) selectedContact.value = contacts.value[0] || null
   connectPresence()
+  startSpotifyAutoSync()
 }
 
 async function login() {
@@ -146,6 +220,7 @@ async function refreshSpotify() {
 }
 
 async function logout() {
+  stopSpotifyAutoSync()
   closePresence()
   await logoutRequest()
   profile.value = null
@@ -155,6 +230,7 @@ async function logout() {
 }
 
 onBeforeUnmount(() => {
+  stopSpotifyAutoSync()
   closePresence()
 })
 

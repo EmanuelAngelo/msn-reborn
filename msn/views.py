@@ -11,6 +11,8 @@ from django.db.models import Q
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes
@@ -247,6 +249,40 @@ def music_status(request):
     return Response(MusicStatusSerializer(request.user.music_status).data)
 
 
+def broadcast_music_status(user, status_obj):
+    """Notifica usuários conectados no WebSocket de presença quando a música muda."""
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+
+    payload = MusicStatusSerializer(status_obj).data
+    async_to_sync(channel_layer.group_send)(
+        'presence_global',
+        {
+            'type': 'music.status.update',
+            'user_id': str(user.id),
+            'music': payload,
+        },
+    )
+
+
+def clear_music_status(user):
+    status_obj, _ = UserMusicStatus.objects.get_or_create(user=user)
+    status_obj.track_name = ''
+    status_obj.artist_name = ''
+    status_obj.album_name = ''
+    status_obj.album_cover_url = ''
+    status_obj.spotify_url = ''
+    status_obj.spotify_track_id = ''
+    status_obj.is_playing = False
+    status_obj.progress_ms = 0
+    status_obj.duration_ms = 0
+    status_obj.last_played_at = timezone.now()
+    status_obj.save()
+    broadcast_music_status(user, status_obj)
+    return status_obj
+
+
 @api_view(['GET'])
 @permission_classes([permissions.AllowAny])
 def spotify_connect(request):
@@ -376,11 +412,11 @@ def spotify_sync(request):
         timeout=10,
     )
 
+    # 204 = Spotify conectado, mas não há música ativa no momento.
+    # Retornamos 200 com status limpo para o frontend remover a música antiga da tela.
     if response.status_code == 204:
-        UserMusicStatus.objects.filter(user=request.user).update(
-            is_playing=False, track_name='', artist_name='', album_name=''
-        )
-        return Response({'detail': 'Nenhuma música em reprodução.'})
+        status_obj = clear_music_status(request.user)
+        return Response(MusicStatusSerializer(status_obj).data)
 
     if response.status_code == 401:
         return Response({'detail': 'Token do Spotify expirado ou inválido. Conecte o Spotify novamente.'}, status=401)
@@ -393,13 +429,22 @@ def spotify_sync(request):
 
     response.raise_for_status()
     data = response.json()
-    item = data.get('item') or {}
+    item = data.get('item')
+
+    if not item:
+        status_obj = clear_music_status(request.user)
+        return Response(MusicStatusSerializer(status_obj).data)
+
     artists = ', '.join([artist.get('name', '') for artist in item.get('artists', [])])
     album = item.get('album') or {}
     images = album.get('images') or []
     external_urls = item.get('external_urls') or {}
 
     status_obj, _ = UserMusicStatus.objects.get_or_create(user=request.user)
+    previous_track_id = status_obj.spotify_track_id
+    previous_is_playing = status_obj.is_playing
+    previous_progress = status_obj.progress_ms
+
     status_obj.track_name = item.get('name', '')
     status_obj.artist_name = artists
     status_obj.album_name = album.get('name', '')
@@ -411,5 +456,14 @@ def spotify_sync(request):
     status_obj.duration_ms = item.get('duration_ms') or 0
     status_obj.last_played_at = timezone.now()
     status_obj.save()
+
+    # Notifica em tempo real quando trocar faixa, pausar/tocar ou quando o progresso variar bastante.
+    changed = (
+        previous_track_id != status_obj.spotify_track_id
+        or previous_is_playing != status_obj.is_playing
+        or abs((previous_progress or 0) - (status_obj.progress_ms or 0)) > 15000
+    )
+    if changed:
+        broadcast_music_status(request.user, status_obj)
 
     return Response(MusicStatusSerializer(status_obj).data)

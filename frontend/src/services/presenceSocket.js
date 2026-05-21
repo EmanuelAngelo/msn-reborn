@@ -31,6 +31,11 @@ export function createPresenceSocket(callbacks = {}) {
 
     if (data.type === 'presence.updated') {
       callbacks.onPresenceUpdated?.(data.profile)
+      return
+    }
+
+    if (data.type === 'music_status_updated') {
+      callbacks.onMusicStatusUpdated?.(data)
     }
   }
 

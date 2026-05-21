@@ -213,6 +213,13 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
             'profile': event['profile'],
         })
 
+    async def music_status_update(self, event):
+        await self.send_json({
+            'type': 'music_status_updated',
+            'user_id': event['user_id'],
+            'music': event['music'],
+        })
+
     @database_sync_to_async
     def get_user_by_token(self, token_key):
         if not token_key:
