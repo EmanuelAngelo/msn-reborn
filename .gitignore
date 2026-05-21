@@ -1,0 +1,244 @@
+# ==========================================================
+# MSN Reborn - .gitignore
+# Django + Vue + TailwindCSS + SQLite + Spotify
+# ==========================================================
+
+
+# ==========================================================
+# Python / Django
+# ==========================================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+*.so
+.Python
+.python-version
+
+venv/
+env/
+ENV/
+.venv/
+.virtualenv/
+
+pip-wheel-metadata/
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+MANIFEST
+
+
+# ==========================================================
+# Django local files
+# ==========================================================
+
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+db.sqlite3-shm
+db.sqlite3-wal
+
+media/
+staticfiles/
+static_root/
+
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+.cache/
+
+
+# ==========================================================
+# Migrations
+# ==========================================================
+# Normalmente migrations devem ser versionadas em projetos reais.
+# Não ignore migrations se o projeto já estiver em equipe/produção.
+# Caso queira ignorar apenas em protótipos, descomente abaixo:
+#
+# **/migrations/*.py
+# !**/migrations/__init__.py
+
+
+# ==========================================================
+# Environment / Secrets
+# ==========================================================
+
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+secrets.json
+credentials.json
+
+# Nunca versionar credenciais reais:
+# - SECRET_KEY do Django
+# - SPOTIFY_CLIENT_SECRET
+# - tokens de acesso
+# - senhas de banco
+# - refresh tokens
+
+
+# ==========================================================
+# Node / Vue / Vite / Tailwind
+# ==========================================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+package-lock.json
+# Se quiser travar versões exatas no time, remova a linha acima
+# e versione o package-lock.json.
+
+.DS_Store
+.vite/
+dist/
+dist-ssr/
+
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+
+
+# ==========================================================
+# IDEs / Editors
+# ==========================================================
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+.idea/
+*.iml
+
+*.sublime-workspace
+*.sublime-project
+
+.project
+.classpath
+.settings/
+
+
+# ==========================================================
+# Operating System
+# ==========================================================
+
+.DS_Store
+.AppleDouble
+.LSOverride
+
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+
+$RECYCLE.BIN/
+
+
+# ==========================================================
+# Logs / Runtime
+# ==========================================================
+
+logs/
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+pids/
+*.pid
+*.pid.lock
+
+
+# ==========================================================
+# Test / Coverage / Reports
+# ==========================================================
+
+coverage/
+coverage-final.json
+junit.xml
+test-results/
+playwright-report/
+cypress/videos/
+cypress/screenshots/
+
+
+# ==========================================================
+# TypeScript / JS cache
+# ==========================================================
+
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+
+
+# ==========================================================
+# Deployment / Local Tooling
+# ==========================================================
+
+.vercel/
+.netlify/
+.railway/
+.render/
+
+docker-compose.override.yml
+
+*.sqlite
+*.sqlite3
+
+
+# ==========================================================
+# Temporary files
+# ==========================================================
+
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+
+# ==========================================================
+# Project generated packages
+# ==========================================================
+
+*.zip
+*.tar
+*.tar.gz
+*.rar

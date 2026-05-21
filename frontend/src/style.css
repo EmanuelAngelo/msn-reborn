@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Tahoma, Verdana, Segoe UI, sans-serif;
+  color: #17324d;
+  background: #8dd7ff;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,.8), transparent 18%),
+    linear-gradient(180deg, #b9ecff 0%, #75c9f3 45%, #eafaff 100%);
+}
+
+.msn-window {
+  box-shadow: 0 18px 45px rgba(0, 78, 128, .28), inset 0 1px 0 rgba(255,255,255,.9);
+}
+
+.msn-titlebar {
+  background: linear-gradient(180deg, #0d8ed8 0%, #0572bd 48%, #005a9f 100%);
+}
+
+.glass-panel {
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(222,246,255,.96));
+  border: 1px solid rgba(22, 104, 169, .45);
+}
+
+.status-online { background: #29cc63; }
+.status-away { background: #ffbd2e; }
+.status-busy { background: #ff4b4b; }
+.status-offline { background: #8b99a6; }
+
+.nudge-animation {
+  animation: nudge .35s linear 0s 3;
+}
+
+@keyframes nudge {
+  0% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  50% { transform: translateX(8px); }
+  75% { transform: translateX(-5px); }
+  100% { transform: translateX(0); }
+}
+
+.screen-shake {
+  animation: msn-shake 0.5s;
+}
+
+@keyframes msn-shake {
+  0% {
+    transform: translate(0, 0);
+  }
+
+  20% {
+    transform: translate(-8px, 0);
+  }
+
+  40% {
+    transform: translate(8px, 0);
+  }
+
+  60% {
+    transform: translate(-8px, 0);
+  }
+
+  80% {
+    transform: translate(8px, 0);
+  }
+
+  100% {
+    transform: translate(0, 0);
+  }
+}
