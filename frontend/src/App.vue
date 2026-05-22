@@ -238,7 +238,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="min-h-screen p-4 md:p-8">
+  <main class="h-screen overflow-hidden p-4 md:p-8">
     <div v-if="!profile" class="mx-auto max-w-md overflow-hidden rounded-xl border border-sky-700 bg-white/95 shadow-2xl">
       <div class="msn-titlebar px-4 py-3 text-center text-lg font-bold text-white">
         MSN Reborn
@@ -271,8 +271,8 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <div v-else class="mx-auto grid max-w-7xl grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
-      <section class="msn-window overflow-hidden rounded-xl border border-sky-700 bg-white/90">
+    <div v-else class="mx-auto grid h-full max-w-7xl grid-cols-1 gap-6 overflow-hidden lg:grid-cols-[360px_minmax(0,1fr)]">
+      <section class="msn-window flex min-h-0 flex-col overflow-hidden rounded-xl border border-sky-700 bg-white/90">
         <div class="msn-titlebar flex items-center justify-between px-4 py-2 text-white">
           <div class="flex items-center gap-2">
             <div class="h-4 w-4 rounded-full bg-lime-300 shadow-inner"></div>
@@ -284,16 +284,18 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <ProfilePanel :profile="profile" :music="music" @updated="handleProfileUpdated" />
-        <ContactList :contacts="contacts" :selected-id="selectedContact?.id" @select="selectedContact = $event" />
-        <ContactManager
+        <div class="min-h-0 flex-1 overflow-y-auto">
+          <ProfilePanel :profile="profile" :music="music" @updated="handleProfileUpdated" />
+          <ContactList :contacts="contacts" :selected-id="selectedContact?.id" @select="selectedContact = $event" />
+          <ContactManager
           :current-user-id="profile.user_id"
           :refresh-signal="refreshSignal"
           @changed="handleContactsChanged"
-        />
+          />
+        </div>
       </section>
 
-      <div>
+      <div class="min-h-0 overflow-hidden">
         <div v-if="error" class="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">{{ error }}</div>
         <ChatWindow :contact="selectedContact" :current-user="profile" />
       </div>

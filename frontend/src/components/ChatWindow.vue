@@ -138,8 +138,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="msn-window flex min-h-[620px] flex-col overflow-hidden rounded-xl border border-sky-700 bg-white/95">
-    <div class="msn-titlebar px-4 py-3 text-white">
+  <section class="msn-window flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-sky-700 bg-white/95">
+    <div class="msn-titlebar shrink-0 px-4 py-3 text-white">
       <div class="font-bold">
         {{ contact?.contact_profile?.display_name || contact?.contact_profile?.email || 'Selecione um contato' }}
       </div>
@@ -156,7 +156,7 @@ onBeforeUnmount(() => {
       <div v-if="error" class="m-3 rounded bg-red-50 p-3 text-sm text-red-700">{{ error }}</div>
       <div v-if="connecting" class="p-4 text-sm text-slate-500">Abrindo conversa...</div>
 
-      <div ref="messageBox" class="flex-1 overflow-y-auto bg-white p-4">
+      <div ref="messageBox" class="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white p-4">
         <div v-for="message in messages" :key="message.id" class="mb-2">
           <div
             v-if="message.type === 'nudge'"
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="flex gap-2 border-t bg-[#eaf7ff] p-3">
+      <div class="shrink-0 flex gap-2 border-t bg-[#eaf7ff] p-3">
         <input
           v-model="newMessage"
           class="flex-1 rounded border border-blue-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-300"
