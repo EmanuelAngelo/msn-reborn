@@ -14,26 +14,18 @@ export function createChatSocket(conversationId, callbacks = {}) {
   )
 
   socket.onopen = () => {
-    console.log('WebSocket conectado.')
     callbacks.onOpen?.()
   }
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data)
 
-    if (data.type === 'connection.accepted') {
-      callbacks.onReady?.(data)
-      return
-    }
-
     if (data.type === 'message.created') {
       callbacks.onMessage?.(data.message)
-      return
     }
 
     if (data.type === 'nudge.received') {
       callbacks.onNudge?.(data.message)
-      return
     }
 
     if (data.type === 'typing.updated') {
@@ -42,49 +34,40 @@ export function createChatSocket(conversationId, callbacks = {}) {
   }
 
   socket.onerror = (error) => {
-    console.error('Erro no WebSocket:', error)
     callbacks.onError?.(error)
   }
 
   socket.onclose = (event) => {
-    console.log('WebSocket fechado:', event.code, event.reason)
     callbacks.onClose?.(event)
   }
 
-  function safeSend(payload) {
-    if (socket.readyState !== WebSocket.OPEN) {
-      callbacks.onNotReady?.(socket.readyState)
-      return false
-    }
-
-    socket.send(JSON.stringify(payload))
-    return true
-  }
-
   return {
+    get readyState() {
+      return socket.readyState
+    },
+
     sendMessage(content) {
-      return safeSend({
-        type: 'message.send',
-        content,
-      })
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'message.send', content }))
+      }
     },
 
     sendNudge() {
-      return safeSend({
-        type: 'nudge.send',
-      })
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'nudge.send' }))
+      }
     },
 
     typingStart() {
-      return safeSend({
-        type: 'typing.start',
-      })
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'typing.start' }))
+      }
     },
 
     typingStop() {
-      return safeSend({
-        type: 'typing.stop',
-      })
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: 'typing.stop' }))
+      }
     },
 
     close() {

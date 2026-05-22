@@ -3,12 +3,6 @@ from django.urls import re_path
 from .consumers import ChatConsumer, PresenceConsumer
 
 websocket_urlpatterns = [
-    re_path(
-        r"ws/conversations/(?P<conversation_id>[0-9a-f-]+)/$",
-        ChatConsumer.as_asgi(),
-    ),
-    re_path(
-        r"ws/presence/$",
-        PresenceConsumer.as_asgi(),
-    ),
+    re_path(r'ws/presence/$', PresenceConsumer.as_asgi()),
+    re_path(r'ws/conversations/(?P<conversation_id>[0-9a-f-]+)/$', ChatConsumer.as_asgi()),
 ]

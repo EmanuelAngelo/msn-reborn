@@ -4,6 +4,8 @@ import base64
 import secrets
 import requests
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.core import signing
@@ -11,8 +13,6 @@ from django.db.models import Q
 from django.shortcuts import redirect
 from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action, api_view, permission_classes
@@ -26,6 +26,28 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+def _group_send(group_name, payload):
+    channel_layer = get_channel_layer()
+    if channel_layer:
+        async_to_sync(channel_layer.group_send)(group_name, payload)
+
+
+def notify_user(user_id, event_type, **payload):
+    _group_send(f'user_{user_id}', {'type': event_type, **payload})
+
+
+def notify_presence(event_type, **payload):
+    _group_send('presence_global', {'type': event_type, **payload})
+
+
+def broadcast_user_status(user):
+    notify_presence(
+        'presence.status',
+        user_id=str(user.id),
+        status=user.profile.status,
+    )
 
 
 def auth_payload(user):
@@ -61,6 +83,7 @@ def register(request):
     user.profile.status = user.profile.Status.ONLINE
     user.profile.save(update_fields=['status', 'updated_at'])
     login(request, user)
+    broadcast_user_status(user)
     return Response(auth_payload(user), status=status.HTTP_201_CREATED)
 
 
@@ -75,6 +98,7 @@ def login_view(request):
     user.profile.status = user.profile.Status.ONLINE
     user.profile.save(update_fields=['status', 'updated_at'])
     login(request, user)
+    broadcast_user_status(user)
     return Response(auth_payload(user))
 
 
@@ -84,6 +108,7 @@ def logout_view(request):
         request.user.profile.status = request.user.profile.Status.OFFLINE
         request.user.profile.last_seen_at = timezone.now()
         request.user.profile.save(update_fields=['status', 'last_seen_at', 'updated_at'])
+        broadcast_user_status(request.user)
     if request.user.is_authenticated:
         Token.objects.filter(user=request.user).delete()
     logout(request)
@@ -111,15 +136,44 @@ def update_my_status(request):
     if new_status == request.user.profile.Status.OFFLINE:
         request.user.profile.last_seen_at = timezone.now()
     request.user.profile.save(update_fields=['status', 'last_seen_at', 'updated_at'])
+    broadcast_user_status(request.user)
     return Response(UserProfileSerializer(request.user.profile).data)
 
 
 @api_view(['GET'])
 def search_users(request):
     query = (request.query_params.get('q') or '').strip()
-    users = User.objects.exclude(id=request.user.id).select_related('profile')
-    if query:
-        users = users.filter(Q(email__icontains=query) | Q(username__icontains=query) | Q(profile__display_name__icontains=query))
+
+    if not query:
+        return Response([])
+
+    contact_ids = Contact.objects.filter(
+        owner=request.user,
+        is_blocked=False,
+    ).values_list('contact_id', flat=True)
+
+    blocked_by_request_ids = ContactRequest.objects.filter(
+        Q(sender=request.user) | Q(receiver=request.user),
+        status__in=[ContactRequest.Status.PENDING, ContactRequest.Status.ACCEPTED],
+    ).values_list('sender_id', 'receiver_id')
+
+    excluded_ids = {request.user.id, *contact_ids}
+    for sender_id, receiver_id in blocked_by_request_ids:
+        excluded_ids.add(sender_id)
+        excluded_ids.add(receiver_id)
+
+    users = (
+        User.objects
+        .exclude(id__in=excluded_ids)
+        .select_related('profile')
+        .filter(
+            Q(email__icontains=query) |
+            Q(username__icontains=query) |
+            Q(profile__display_name__icontains=query)
+        )
+        .order_by('profile__display_name', 'username')
+    )
+
     return Response(UserSearchSerializer(users[:20], many=True).data)
 
 
@@ -149,28 +203,65 @@ class ContactRequestViewSet(viewsets.ModelViewSet):
             .order_by('-created_at')
         )
 
-    def perform_create(self, serializer):
-        serializer.save(sender=self.request.user)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        contact_request = serializer.save(sender=request.user)
+
+        response_serializer = self.get_serializer(contact_request)
+        payload = response_serializer.data
+
+        notify_user(
+            contact_request.receiver_id,
+            'contact.request.created',
+            request=payload,
+        )
+        notify_user(
+            contact_request.sender_id,
+            'contact.request.updated',
+            request=payload,
+        )
+
+        headers = self.get_success_headers(payload)
+        return Response(payload, status=status.HTTP_201_CREATED, headers=headers)
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
         contact_request = self.get_object()
         if contact_request.receiver != request.user:
             return Response({'detail': 'Você não pode aceitar esta solicitação.'}, status=403)
+
         contact_request.status = ContactRequest.Status.ACCEPTED
         contact_request.save(update_fields=['status', 'updated_at'])
+
         Contact.objects.get_or_create(owner=contact_request.sender, contact=contact_request.receiver)
         Contact.objects.get_or_create(owner=contact_request.receiver, contact=contact_request.sender)
-        return Response(ContactRequestSerializer(contact_request, context={'request': request}).data)
+
+        payload = ContactRequestSerializer(contact_request, context={'request': request}).data
+
+        for user_id in [contact_request.sender_id, contact_request.receiver_id]:
+            notify_user(user_id, 'contact.request.updated', request=payload)
+            notify_user(user_id, 'contacts.changed', reason='contact_request_accepted')
+
+        broadcast_user_status(contact_request.sender)
+        broadcast_user_status(contact_request.receiver)
+
+        return Response(payload)
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
         contact_request = self.get_object()
         if contact_request.receiver != request.user:
             return Response({'detail': 'Você não pode recusar esta solicitação.'}, status=403)
+
         contact_request.status = ContactRequest.Status.REJECTED
         contact_request.save(update_fields=['status', 'updated_at'])
-        return Response(ContactRequestSerializer(contact_request, context={'request': request}).data)
+
+        payload = ContactRequestSerializer(contact_request, context={'request': request}).data
+        for user_id in [contact_request.sender_id, contact_request.receiver_id]:
+            notify_user(user_id, 'contact.request.updated', request=payload)
+
+        return Response(payload)
 
 
 class ConversationViewSet(viewsets.ModelViewSet):
@@ -247,40 +338,6 @@ def music_preferences(request):
 @api_view(['GET'])
 def music_status(request):
     return Response(MusicStatusSerializer(request.user.music_status).data)
-
-
-def broadcast_music_status(user, status_obj):
-    """Notifica usuários conectados no WebSocket de presença quando a música muda."""
-    channel_layer = get_channel_layer()
-    if not channel_layer:
-        return
-
-    payload = MusicStatusSerializer(status_obj).data
-    async_to_sync(channel_layer.group_send)(
-        'presence_global',
-        {
-            'type': 'music.status.update',
-            'user_id': str(user.id),
-            'music': payload,
-        },
-    )
-
-
-def clear_music_status(user):
-    status_obj, _ = UserMusicStatus.objects.get_or_create(user=user)
-    status_obj.track_name = ''
-    status_obj.artist_name = ''
-    status_obj.album_name = ''
-    status_obj.album_cover_url = ''
-    status_obj.spotify_url = ''
-    status_obj.spotify_track_id = ''
-    status_obj.is_playing = False
-    status_obj.progress_ms = 0
-    status_obj.duration_ms = 0
-    status_obj.last_played_at = timezone.now()
-    status_obj.save()
-    broadcast_music_status(user, status_obj)
-    return status_obj
 
 
 @api_view(['GET'])
@@ -412,11 +469,21 @@ def spotify_sync(request):
         timeout=10,
     )
 
-    # 204 = Spotify conectado, mas não há música ativa no momento.
-    # Retornamos 200 com status limpo para o frontend remover a música antiga da tela.
     if response.status_code == 204:
-        status_obj = clear_music_status(request.user)
-        return Response(MusicStatusSerializer(status_obj).data)
+        status_obj, _ = UserMusicStatus.objects.get_or_create(user=request.user)
+        status_obj.track_name = ''
+        status_obj.artist_name = ''
+        status_obj.album_name = ''
+        status_obj.album_cover_url = ''
+        status_obj.spotify_url = ''
+        status_obj.spotify_track_id = ''
+        status_obj.is_playing = False
+        status_obj.progress_ms = 0
+        status_obj.duration_ms = 0
+        status_obj.save()
+        data = MusicStatusSerializer(status_obj).data
+        notify_presence('music.status.updated', user_id=str(request.user.id), music=data)
+        return Response(data)
 
     if response.status_code == 401:
         return Response({'detail': 'Token do Spotify expirado ou inválido. Conecte o Spotify novamente.'}, status=401)
@@ -429,22 +496,13 @@ def spotify_sync(request):
 
     response.raise_for_status()
     data = response.json()
-    item = data.get('item')
-
-    if not item:
-        status_obj = clear_music_status(request.user)
-        return Response(MusicStatusSerializer(status_obj).data)
-
+    item = data.get('item') or {}
     artists = ', '.join([artist.get('name', '') for artist in item.get('artists', [])])
     album = item.get('album') or {}
     images = album.get('images') or []
     external_urls = item.get('external_urls') or {}
 
     status_obj, _ = UserMusicStatus.objects.get_or_create(user=request.user)
-    previous_track_id = status_obj.spotify_track_id
-    previous_is_playing = status_obj.is_playing
-    previous_progress = status_obj.progress_ms
-
     status_obj.track_name = item.get('name', '')
     status_obj.artist_name = artists
     status_obj.album_name = album.get('name', '')
@@ -457,13 +515,6 @@ def spotify_sync(request):
     status_obj.last_played_at = timezone.now()
     status_obj.save()
 
-    # Notifica em tempo real quando trocar faixa, pausar/tocar ou quando o progresso variar bastante.
-    changed = (
-        previous_track_id != status_obj.spotify_track_id
-        or previous_is_playing != status_obj.is_playing
-        or abs((previous_progress or 0) - (status_obj.progress_ms or 0)) > 15000
-    )
-    if changed:
-        broadcast_music_status(request.user, status_obj)
-
-    return Response(MusicStatusSerializer(status_obj).data)
+    data = MusicStatusSerializer(status_obj).data
+    notify_presence('music.status.updated', user_id=str(request.user.id), music=data)
+    return Response(data)

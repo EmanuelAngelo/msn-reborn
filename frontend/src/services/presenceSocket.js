@@ -14,7 +14,7 @@ export function createPresenceSocket(callbacks = {}) {
 
   socket.onopen = () => {
     callbacks.onOpen?.()
-    pingInterval = window.setInterval(() => {
+    pingInterval = setInterval(() => {
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({ type: 'presence.ping' }))
       }
@@ -23,15 +23,18 @@ export function createPresenceSocket(callbacks = {}) {
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data)
+    callbacks.onEvent?.(data)
 
-    if (data.type === 'presence.ready') {
-      callbacks.onReady?.(data.profile)
-      return
+    if (data.type === 'contact_request_created' || data.type === 'contact_request_updated') {
+      callbacks.onContactRequestChanged?.(data)
     }
 
-    if (data.type === 'presence.updated') {
-      callbacks.onPresenceUpdated?.(data.profile)
-      return
+    if (data.type === 'contacts_changed') {
+      callbacks.onContactsChanged?.(data)
+    }
+
+    if (data.type === 'contact_status_updated') {
+      callbacks.onContactStatusUpdated?.(data)
     }
 
     if (data.type === 'music_status_updated') {
@@ -40,34 +43,17 @@ export function createPresenceSocket(callbacks = {}) {
   }
 
   socket.onerror = (error) => {
-    console.error('Erro no WebSocket de presença:', error)
     callbacks.onError?.(error)
   }
 
   socket.onclose = (event) => {
-    if (pingInterval) {
-      window.clearInterval(pingInterval)
-      pingInterval = null
-    }
+    if (pingInterval) clearInterval(pingInterval)
     callbacks.onClose?.(event)
   }
 
-  function safeSend(payload) {
-    if (socket.readyState !== WebSocket.OPEN) return false
-    socket.send(JSON.stringify(payload))
-    return true
-  }
-
   return {
-    setStatus(status) {
-      return safeSend({ type: 'presence.set_status', status })
-    },
-
     close() {
-      if (pingInterval) {
-        window.clearInterval(pingInterval)
-        pingInterval = null
-      }
+      if (pingInterval) clearInterval(pingInterval)
       socket.close()
     },
   }
