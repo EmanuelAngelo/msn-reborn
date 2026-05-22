@@ -26,6 +26,7 @@ const form = ref({
 
 let presenceSocket = null
 let spotifyInterval = null
+let contactPollingInterval = null
 
 function selectedContactStillExists(newContacts) {
   if (!selectedContact.value) return false
@@ -55,75 +56,91 @@ async function loadDashboard() {
 function startPresenceSocket() {
   stopPresenceSocket()
 
-  presenceSocket = createPresenceSocket({
-    async onContactRequestChanged() {
-      refreshSignal.value++
-      await refreshContacts()
-    },
+  try {
+    presenceSocket = createPresenceSocket({
+      onOpen() {
+        stopContactPolling()
+      },
 
-    async onContactsChanged() {
-      refreshSignal.value++
-      await refreshContacts({ keepSelection: false })
-    },
+      async onContactRequestChanged() {
+        refreshSignal.value++
+        await refreshContacts()
+      },
 
-    async onContactStatusUpdated(event) {
-      contacts.value = contacts.value.map((item) => {
-        if (item.contact_profile?.user_id !== event.user_id) return item
-        return {
-          ...item,
-          contact_profile: {
-            ...item.contact_profile,
-            status: event.status,
-          },
+      async onContactsChanged() {
+        refreshSignal.value++
+        await refreshContacts({ keepSelection: false })
+      },
+
+      async onContactStatusUpdated(event) {
+        contacts.value = contacts.value.map((item) => {
+          if (item.contact_profile?.user_id !== event.user_id) return item
+          return {
+            ...item,
+            contact_profile: {
+              ...item.contact_profile,
+              status: event.status,
+            },
+          }
+        })
+
+        if (selectedContact.value?.contact_profile?.user_id === event.user_id) {
+          selectedContact.value = {
+            ...selectedContact.value,
+            contact_profile: {
+              ...selectedContact.value.contact_profile,
+              status: event.status,
+            },
+          }
         }
-      })
+      },
 
-      if (selectedContact.value?.contact_profile?.user_id === event.user_id) {
-        selectedContact.value = {
-          ...selectedContact.value,
-          contact_profile: {
-            ...selectedContact.value.contact_profile,
-            status: event.status,
-          },
+      async onProfileUpdated(event) {
+        if (profile.value?.user_id === event.user_id) {
+          profile.value = event.profile
         }
-      }
-    },
 
-    async onProfileUpdated(event) {
-      if (profile.value?.user_id === event.user_id) {
-        profile.value = event.profile
-      }
+        contacts.value = contacts.value.map((item) => {
+          if (item.contact_profile?.user_id !== event.user_id) return item
+          return {
+            ...item,
+            contact_profile: event.profile,
+          }
+        })
 
-      contacts.value = contacts.value.map((item) => {
-        if (item.contact_profile?.user_id !== event.user_id) return item
-        return {
-          ...item,
-          contact_profile: event.profile,
+        if (selectedContact.value?.contact_profile?.user_id === event.user_id) {
+          selectedContact.value = {
+            ...selectedContact.value,
+            contact_profile: event.profile,
+          }
         }
-      })
+      },
 
-      if (selectedContact.value?.contact_profile?.user_id === event.user_id) {
-        selectedContact.value = {
-          ...selectedContact.value,
-          contact_profile: event.profile,
+      async onMusicStatusUpdated(event) {
+        if (profile.value?.user_id === event.user_id) {
+          music.value = event.music
         }
-      }
-    },
 
-    async onMusicStatusUpdated(event) {
-      if (profile.value?.user_id === event.user_id) {
-        music.value = event.music
-      }
+        contacts.value = contacts.value.map((item) => {
+          if (item.contact_profile?.user_id !== event.user_id) return item
+          return {
+            ...item,
+            music_status: event.music,
+          }
+        })
+      },
 
-      contacts.value = contacts.value.map((item) => {
-        if (item.contact_profile?.user_id !== event.user_id) return item
-        return {
-          ...item,
-          music_status: event.music,
-        }
-      })
-    },
-  })
+      onError() {
+        startContactPolling()
+      },
+
+      onClose() {
+        startContactPolling()
+      },
+    })
+  } catch {
+    startContactPolling()
+  }
 }
 
 function stopPresenceSocket() {
@@ -132,6 +149,29 @@ function stopPresenceSocket() {
     presenceSocket = null
   }
 }
+
+function startContactPolling() {
+  if (contactPollingInterval) return
+
+  contactPollingInterval = setInterval(async () => {
+    if (!profile.value) return
+
+    try {
+      await refreshContacts()
+      refreshSignal.value++
+    } catch {
+      // Mantém o frontend funcionando mesmo quando WebSocket não está disponível no servidor.
+    }
+  }, 5000)
+}
+
+function stopContactPolling() {
+  if (contactPollingInterval) {
+    clearInterval(contactPollingInterval)
+    contactPollingInterval = null
+  }
+}
+
 
 async function syncSpotifyMusicSilently() {
   try {
@@ -211,6 +251,7 @@ function handleProfileUpdated(updatedProfile) {
 async function logout() {
   stopSpotifyAutoSync()
   stopPresenceSocket()
+  stopContactPolling()
   await logoutRequest()
   profile.value = null
   contacts.value = []
@@ -234,6 +275,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   stopSpotifyAutoSync()
   stopPresenceSocket()
+  stopContactPolling()
 })
 </script>
 

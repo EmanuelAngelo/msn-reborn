@@ -17,6 +17,26 @@ export const api = axios.create({
   withCredentials: false,
 })
 
+export function getWebSocketBaseUrl() {
+  if (import.meta.env.VITE_WS_BASE_URL) {
+    return import.meta.env.VITE_WS_BASE_URL
+  }
+
+  const apiUrl = api.defaults.baseURL || window.location.origin
+
+  try {
+    const url = new URL(apiUrl)
+    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+    url.pathname = ''
+    url.search = ''
+    url.hash = ''
+    return url.toString().replace(/\/$/, '')
+  } catch {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}`
+  }
+}
+
 api.interceptors.request.use((config) => {
   const token = getAuthToken()
 

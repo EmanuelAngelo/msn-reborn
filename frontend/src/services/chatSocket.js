@@ -1,6 +1,6 @@
-import { getAuthToken } from './api'
+import { getAuthToken, getWebSocketBaseUrl } from './api'
 
-const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || 'ws://127.0.0.1:8000'
+const WS_BASE_URL = getWebSocketBaseUrl()
 
 export function createChatSocket(conversationId, callbacks = {}) {
   const token = getAuthToken()

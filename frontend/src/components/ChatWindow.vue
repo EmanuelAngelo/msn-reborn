@@ -1,7 +1,7 @@
 <script setup>
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { createChatSocket } from '../services/chatSocket'
-import { listMessages, openDirectConversation } from '../services/msn'
+import { listMessages, openDirectConversation, sendMessage as sendMessageRest, sendNudge as sendNudgeRest } from '../services/msn'
 
 const props = defineProps({
   contact: {
@@ -24,6 +24,7 @@ const messageBox = ref(null)
 
 let chatSocket = null
 let typingTimeout = null
+let messagePollingInterval = null
 
 function getContactUserId() {
   return props.contact?.contact || props.contact?.contact_profile?.user_id || null
@@ -31,6 +32,20 @@ function getContactUserId() {
 
 function messageAuthor(message) {
   return message.sender_name || message.sender?.username || message.sender_obj?.username || 'Usuário'
+}
+
+function addMessage(message) {
+  if (!message?.id) return
+  if (messages.value.some((item) => item.id === message.id)) return
+  messages.value.push(message)
+}
+
+function setMessagesWithoutDuplicates(newMessages) {
+  const map = new Map()
+  for (const message of [...messages.value, ...newMessages]) {
+    if (message?.id) map.set(message.id, message)
+  }
+  messages.value = Array.from(map.values())
 }
 
 async function scrollToBottom() {
@@ -58,14 +73,15 @@ function connectSocket() {
 
   disconnectSocket()
 
-  chatSocket = createChatSocket(conversation.value.id, {
+  try {
+    chatSocket = createChatSocket(conversation.value.id, {
     onMessage(message) {
-      messages.value.push(message)
+      addMessage(message)
       scrollToBottom()
     },
 
     onNudge(message) {
-      messages.value.push(message)
+      addMessage(message)
       document.body.classList.add('screen-shake')
       setTimeout(() => document.body.classList.remove('screen-shake'), 500)
       scrollToBottom()
@@ -76,12 +92,47 @@ function connectSocket() {
     },
 
     onError() {
-      error.value = 'Erro no chat em tempo real.'
+      error.value = 'Erro no chat em tempo real. Usando atualização automática.'
+      startMessagePolling()
     },
-  })
+
+    onClose() {
+      startMessagePolling()
+    },
+    })
+  } catch {
+    error.value = 'Erro no chat em tempo real. Usando atualização automática.'
+    startMessagePolling()
+  }
+}
+
+
+function startMessagePolling() {
+  if (messagePollingInterval || !conversation.value?.id) return
+
+  messagePollingInterval = setInterval(async () => {
+    if (!conversation.value?.id) return
+
+    try {
+      const updatedMessages = await listMessages(conversation.value.id)
+      const before = messages.value.length
+      setMessagesWithoutDuplicates(updatedMessages)
+      if (messages.value.length !== before) await scrollToBottom()
+    } catch {
+      // Mantém a tela estável se a API oscilar.
+    }
+  }, 3000)
+}
+
+function stopMessagePolling() {
+  if (messagePollingInterval) {
+    clearInterval(messagePollingInterval)
+    messagePollingInterval = null
+  }
 }
 
 async function openConversation() {
+  stopMessagePolling()
   disconnectSocket()
   messages.value = []
   conversation.value = null
@@ -104,18 +155,46 @@ async function openConversation() {
   }
 }
 
-function sendMessage() {
+async function sendMessage() {
   const text = newMessage.value.trim()
-  if (!text || !chatSocket) return
+  if (!text || !conversation.value?.id) return
 
-  chatSocket.sendMessage(text)
-  newMessage.value = ''
-  chatSocket.typingStop()
+  if (chatSocket?.readyState === WebSocket.OPEN) {
+    chatSocket.sendMessage(text)
+    newMessage.value = ''
+    chatSocket.typingStop()
+    return
+  }
+
+  try {
+    const message = await sendMessageRest(conversation.value.id, text)
+    addMessage(message)
+    newMessage.value = ''
+    await scrollToBottom()
+    startMessagePolling()
+  } catch {
+    error.value = 'Não foi possível enviar a mensagem.'
+  }
 }
 
-function sendNudge() {
-  if (!chatSocket) return
-  chatSocket.sendNudge()
+async function sendNudge() {
+  if (!conversation.value?.id) return
+
+  if (chatSocket?.readyState === WebSocket.OPEN) {
+    chatSocket.sendNudge()
+    return
+  }
+
+  try {
+    const message = await sendNudgeRest(conversation.value.id)
+    addMessage(message)
+    document.body.classList.add('screen-shake')
+    setTimeout(() => document.body.classList.remove('screen-shake'), 500)
+    await scrollToBottom()
+    startMessagePolling()
+  } catch {
+    error.value = 'Não foi possível chamar atenção.'
+  }
 }
 
 function handleTyping() {
@@ -133,6 +212,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  stopMessagePolling()
   disconnectSocket()
 })
 </script>
