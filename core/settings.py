@@ -141,48 +141,45 @@ SPECTACULAR_SETTINGS = {
 # ==========================================================
 # CORS / CSRF
 # ==========================================================
-# Frontend local + frontend publicado na Vercel.
 
 CORS_ALLOWED_ORIGINS = [
-    'http://127.0.0.1:5173',
-    'http://localhost:5173',
-    'https://msn-reborn-ochre.vercel.app',
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "https://msn-reborn-ochre.vercel.app",
 ]
 
-# Aceita também previews da Vercel, caso você faça deploys temporários.
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https://.*\.vercel\.app$',
+    r"^https://.*\.vercel\.app$",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    'http://127.0.0.1:5173',
-    'http://localhost:5173',
-    'https://msn-reborn-ochre.vercel.app',
-    'https://emanuelangelo1992.pythonanywhere.com',
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "https://msn-reborn-ochre.vercel.app",
+    "https://emanuelangelo1992.pythonanywhere.com",
 ]
 
-# O frontend usa Token Authentication, então não precisa enviar cookies cross-site.
 CORS_ALLOW_CREDENTIALS = False
 
 CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
 ]
 
 CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
 ]
 
 SESSION_COOKIE_SAMESITE = 'Lax'
