@@ -6,6 +6,7 @@ import ChatWindow from './components/ChatWindow.vue'
 import ProfilePanel from './components/ProfilePanel.vue'
 import { getMe, login as loginRequest, register as registerRequest, logout as logoutRequest } from './services/auth'
 import { getMusicStatus, listContacts, spotifyConnectUrl, syncSpotify } from './services/msn'
+import { areWebSocketsEnabled } from './services/api'
 import { createPresenceSocket } from './services/presenceSocket'
 
 const profile = ref(null)
@@ -55,6 +56,13 @@ async function loadDashboard() {
 
 function startPresenceSocket() {
   stopPresenceSocket()
+
+  // Em PythonAnywhere, usamos polling REST para contatos/convites/status,
+  // evitando erro no console por tentativa de WebSocket.
+  if (!areWebSocketsEnabled()) {
+    startContactPolling()
+    return
+  }
 
   try {
     presenceSocket = createPresenceSocket({

@@ -17,6 +17,15 @@ export const api = axios.create({
   withCredentials: false,
 })
 
+
+export function areWebSocketsEnabled() {
+  const value = import.meta.env.VITE_ENABLE_WEBSOCKETS
+
+  // Em produção no PythonAnywhere, WebSocket não fica disponível neste modelo de deploy.
+  // Por isso o padrão é desligado. Em outro provedor com ASGI/WebSocket, use VITE_ENABLE_WEBSOCKETS=true.
+  return String(value || '').toLowerCase() === 'true'
+}
+
 export function getWebSocketBaseUrl() {
   if (import.meta.env.VITE_WS_BASE_URL) {
     return import.meta.env.VITE_WS_BASE_URL

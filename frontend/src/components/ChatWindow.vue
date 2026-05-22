@@ -1,5 +1,6 @@
 <script setup>
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { areWebSocketsEnabled } from '../services/api'
 import { createChatSocket } from '../services/chatSocket'
 import { listMessages, openDirectConversation, sendMessage as sendMessageRest, sendNudge as sendNudgeRest } from '../services/msn'
 
@@ -73,35 +74,45 @@ function connectSocket() {
 
   disconnectSocket()
 
+  // PythonAnywhere não entrega WebSocket neste deploy. Quando estiver desativado,
+  // usamos somente atualização automática por REST, sem exibir erro visual.
+  if (!areWebSocketsEnabled()) {
+    startMessagePolling()
+    return
+  }
+
   try {
     chatSocket = createChatSocket(conversation.value.id, {
-    onMessage(message) {
-      addMessage(message)
-      scrollToBottom()
-    },
+      onMessage(message) {
+        addMessage(message)
+        scrollToBottom()
+      },
 
-    onNudge(message) {
-      addMessage(message)
-      document.body.classList.add('screen-shake')
-      setTimeout(() => document.body.classList.remove('screen-shake'), 500)
-      scrollToBottom()
-    },
+      onNudge(message) {
+        addMessage(message)
+        document.body.classList.add('screen-shake')
+        setTimeout(() => document.body.classList.remove('screen-shake'), 500)
+        scrollToBottom()
+      },
 
-    onTyping(data) {
-      typingText.value = data.is_typing ? `${data.user.username} está digitando...` : ''
-    },
+      onTyping(data) {
+        typingText.value = data.is_typing ? `${data.user.username} está digitando...` : ''
+      },
 
-    onError() {
-      error.value = 'Erro no chat em tempo real. Usando atualização automática.'
-      startMessagePolling()
-    },
+      onError() {
+        // Não mostra erro na tela porque o fallback REST assume o chat.
+        startMessagePolling()
+      },
 
-    onClose() {
-      startMessagePolling()
-    },
+      onClose() {
+        startMessagePolling()
+      },
     })
+
+    if (!chatSocket) {
+      startMessagePolling()
+    }
   } catch {
-    error.value = 'Erro no chat em tempo real. Usando atualização automática.'
     startMessagePolling()
   }
 }
@@ -198,7 +209,7 @@ async function sendNudge() {
 }
 
 function handleTyping() {
-  if (!chatSocket) return
+  if (!areWebSocketsEnabled() || !chatSocket) return
 
   chatSocket.typingStart()
   clearTimeout(typingTimeout)

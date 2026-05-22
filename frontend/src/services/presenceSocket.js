@@ -1,8 +1,12 @@
-import { getAuthToken, getWebSocketBaseUrl } from './api'
+import { areWebSocketsEnabled, getAuthToken, getWebSocketBaseUrl } from './api'
 
 const WS_BASE_URL = getWebSocketBaseUrl()
 
 export function createPresenceSocket(callbacks = {}) {
+  if (!areWebSocketsEnabled()) {
+    return null
+  }
+
   const token = getAuthToken()
 
   if (!token) {
