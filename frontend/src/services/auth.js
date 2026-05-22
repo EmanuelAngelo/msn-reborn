@@ -22,6 +22,11 @@ export async function register(payload) {
   return normalizeAuthResponse(data)
 }
 
+export async function updateMe(payload) {
+  const { data } = await api.patch('/me/', payload)
+  return data
+}
+
 export async function logout() {
   try {
     const { data } = await api.post('/auth/logout/')

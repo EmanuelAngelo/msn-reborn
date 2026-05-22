@@ -14,6 +14,31 @@ function statusClass(status) {
     offline: 'bg-slate-400',
   }[status] || 'bg-slate-400'
 }
+
+function apiOrigin() {
+  const base = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
+  return base.replace(/\/api\/?$/, '')
+}
+
+function mediaUrl(url) {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  return `${apiOrigin()}${url}`
+}
+
+function avatarSrc(profile) {
+  return mediaUrl(profile?.avatar_url || profile?.avatar || '')
+}
+
+function initials(profile) {
+  const value = profile?.display_name || profile?.email || 'MSN'
+  return value
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((item) => item[0]?.toUpperCase())
+    .join('') || '🙂'
+}
 </script>
 
 <template>
@@ -30,7 +55,19 @@ function statusClass(status) {
       :class="selectedId === item.id ? 'border-sky-500 bg-sky-50' : 'border-slate-200 bg-white'"
       @click="$emit('select', item)"
     >
-      <span class="mt-1 h-3 w-3 rounded-full" :class="statusClass(item.contact_profile?.status)"></span>
+      <span class="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-sky-200 bg-sky-50">
+        <img
+          v-if="avatarSrc(item.contact_profile)"
+          :src="avatarSrc(item.contact_profile)"
+          alt="Foto do contato"
+          class="h-full w-full object-cover"
+        />
+        <span v-else class="grid h-full w-full place-items-center text-xs font-bold text-sky-700">
+          {{ initials(item.contact_profile) }}
+        </span>
+        <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border border-white" :class="statusClass(item.contact_profile?.status)"></span>
+      </span>
+
       <span class="min-w-0 flex-1">
         <span class="block truncate font-semibold text-slate-800">
           {{ item.contact_profile?.display_name || item.contact_profile?.email || 'Contato' }}

@@ -29,13 +29,13 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.global_group, self.channel_name)
         await self.channel_layer.group_add(self.user_group, self.channel_name)
         await self.accept()
-        await self.set_user_status('online')
+        current_status = await self.ensure_user_online_when_needed()
         await self.channel_layer.group_send(
             self.global_group,
             {
                 'type': 'presence.status',
                 'user_id': str(self.user.id),
-                'status': 'online',
+                'status': current_status,
             },
         )
 
@@ -92,6 +92,16 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+
+    async def profile_updated(self, event):
+        await self.send_json(
+            {
+                'type': 'profile_updated',
+                'user_id': event.get('user_id'),
+                'profile': event.get('profile'),
+            }
+        )
+
     async def music_status_updated(self, event):
         await self.send_json(
             {
@@ -109,6 +119,14 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
             return Token.objects.select_related('user').get(key=token_key).user
         except Token.DoesNotExist:
             return None
+
+    @database_sync_to_async
+    def ensure_user_online_when_needed(self):
+        profile = self.user.profile
+        if profile.status == UserProfile.Status.OFFLINE:
+            profile.status = UserProfile.Status.ONLINE
+            profile.save(update_fields=['status', 'updated_at'])
+        return profile.status
 
     @database_sync_to_async
     def set_user_status(self, status):

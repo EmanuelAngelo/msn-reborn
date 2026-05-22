@@ -89,6 +89,27 @@ function startPresenceSocket() {
       }
     },
 
+    async onProfileUpdated(event) {
+      if (profile.value?.user_id === event.user_id) {
+        profile.value = event.profile
+      }
+
+      contacts.value = contacts.value.map((item) => {
+        if (item.contact_profile?.user_id !== event.user_id) return item
+        return {
+          ...item,
+          contact_profile: event.profile,
+        }
+      })
+
+      if (selectedContact.value?.contact_profile?.user_id === event.user_id) {
+        selectedContact.value = {
+          ...selectedContact.value,
+          contact_profile: event.profile,
+        }
+      }
+    },
+
     async onMusicStatusUpdated(event) {
       if (profile.value?.user_id === event.user_id) {
         music.value = event.music
@@ -182,6 +203,11 @@ async function handleContactsChanged() {
   refreshSignal.value++
 }
 
+function handleProfileUpdated(updatedProfile) {
+  profile.value = updatedProfile
+  refreshSignal.value++
+}
+
 async function logout() {
   stopSpotifyAutoSync()
   stopPresenceSocket()
@@ -258,7 +284,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <ProfilePanel :profile="profile" :music="music" />
+        <ProfilePanel :profile="profile" :music="music" @updated="handleProfileUpdated" />
         <ContactList :contacts="contacts" :selected-id="selectedContact?.id" @select="selectedContact = $event" />
         <ContactManager
           :current-user-id="profile.user_id"

@@ -30,13 +30,25 @@ class UserProfileSerializer(serializers.ModelSerializer):
     user_id = serializers.UUIDField(source='user.id', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
         fields = [
             'id', 'user_id', 'email', 'username', 'display_name',
-            'personal_message', 'avatar', 'status', 'last_seen_at'
+            'personal_message', 'avatar', 'avatar_url', 'status', 'last_seen_at'
         ]
+        read_only_fields = ['id', 'user_id', 'email', 'username', 'avatar_url', 'last_seen_at']
+
+    def get_avatar_url(self, obj):
+        if not obj.avatar:
+            return ''
+
+        request = self.context.get('request')
+        url = obj.avatar.url
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class UserSearchSerializer(serializers.ModelSerializer):

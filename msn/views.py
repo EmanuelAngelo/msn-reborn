@@ -15,8 +15,9 @@ from django.utils import timezone
 from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, parser_classes, permission_classes
 from rest_framework.response import Response
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
 from .models import Contact, ContactRequest, Conversation, ConversationParticipant, Message, SpotifyIntegration, UserMusicStatus
 from .serializers import (
@@ -47,6 +48,14 @@ def broadcast_user_status(user):
         'presence.status',
         user_id=str(user.id),
         status=user.profile.status,
+    )
+
+
+def broadcast_user_profile(user, request=None):
+    notify_presence(
+        'profile.updated',
+        user_id=str(user.id),
+        profile=UserProfileSerializer(user.profile, context={'request': request}).data,
     )
 
 
@@ -116,13 +125,29 @@ def logout_view(request):
 
 
 @api_view(['GET', 'PATCH'])
+@parser_classes([JSONParser, FormParser, MultiPartParser])
 def me(request):
     if request.method == 'PATCH':
-        serializer = UserProfileSerializer(request.user.profile, data=request.data, partial=True)
+        old_status = request.user.profile.status
+        serializer = UserProfileSerializer(
+            request.user.profile,
+            data=request.data,
+            partial=True,
+            context={'request': request},
+        )
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
-    return Response(UserProfileSerializer(request.user.profile).data)
+        profile = serializer.save()
+
+        if profile.status == profile.Status.OFFLINE:
+            profile.last_seen_at = timezone.now()
+            profile.save(update_fields=['last_seen_at', 'updated_at'])
+
+        if old_status != profile.status:
+            broadcast_user_status(request.user)
+
+        broadcast_user_profile(request.user, request=request)
+        return Response(UserProfileSerializer(profile, context={'request': request}).data)
+    return Response(UserProfileSerializer(request.user.profile, context={'request': request}).data)
 
 
 
@@ -137,7 +162,8 @@ def update_my_status(request):
         request.user.profile.last_seen_at = timezone.now()
     request.user.profile.save(update_fields=['status', 'last_seen_at', 'updated_at'])
     broadcast_user_status(request.user)
-    return Response(UserProfileSerializer(request.user.profile).data)
+    broadcast_user_profile(request.user, request=request)
+    return Response(UserProfileSerializer(request.user.profile, context={'request': request}).data)
 
 
 @api_view(['GET'])
