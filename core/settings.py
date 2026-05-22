@@ -2,9 +2,44 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ==========================================================
+# CONFIGURAÇÃO PRINCIPAL
+# ==========================================================
+# MVP em desenvolvimento. Antes de produção real, troque DEBUG para False
+# e mova SECRET_KEY / SPOTIFY_CLIENT_SECRET para variáveis de ambiente.
+
 SECRET_KEY = 'dev-only-msn-reborn-secret-key'
 DEBUG = True
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
+
+ALLOWED_HOSTS = [
+    '127.0.0.1',
+    'localhost',
+    'emanuelangelo1992.pythonanywhere.com',
+    '.pythonanywhere.com',
+]
+
+# Ambiente ativo do projeto.
+# Use 'local' para rodar na sua máquina.
+# Use 'production' para backend no PythonAnywhere e frontend na Vercel.
+APP_ENV = 'production'
+
+LOCAL_FRONTEND_URL = 'http://127.0.0.1:5173'
+LOCAL_BACKEND_API_URL = 'http://127.0.0.1:8000/api'
+LOCAL_WS_URL = 'ws://127.0.0.1:8000'
+LOCAL_SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:8000/api/spotify/callback/'
+
+PRODUCTION_FRONTEND_URL = 'https://msn-reborn-ochre.vercel.app'
+PRODUCTION_BACKEND_API_URL = 'https://emanuelangelo1992.pythonanywhere.com/api'
+PRODUCTION_WS_URL = 'wss://emanuelangelo1992.pythonanywhere.com'
+PRODUCTION_SPOTIFY_REDIRECT_URI = 'https://emanuelangelo1992.pythonanywhere.com/api/spotify/callback/'
+
+if APP_ENV == 'production':
+    FRONTEND_URL = PRODUCTION_FRONTEND_URL
+    SPOTIFY_REDIRECT_URI = PRODUCTION_SPOTIFY_REDIRECT_URI
+else:
+    FRONTEND_URL = LOCAL_FRONTEND_URL
+    SPOTIFY_REDIRECT_URI = LOCAL_SPOTIFY_REDIRECT_URI
+
 
 INSTALLED_APPS = [
     'daphne',
@@ -16,9 +51,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
-    'corsheaders',
     'drf_spectacular',
     'channels',
 
@@ -26,7 +61,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    # Precisa ficar no topo para responder corretamente o preflight CORS.
     'corsheaders.middleware.CorsMiddleware',
+
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -101,9 +138,53 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
 }
 
-CORS_ALLOWED_ORIGINS = ['http://127.0.0.1:5173']
-CSRF_TRUSTED_ORIGINS = ['http://127.0.0.1:5173']
-CORS_ALLOW_CREDENTIALS = True
+# ==========================================================
+# CORS / CSRF
+# ==========================================================
+# Frontend local + frontend publicado na Vercel.
+
+CORS_ALLOWED_ORIGINS = [
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+    'https://msn-reborn-ochre.vercel.app',
+]
+
+# Aceita também previews da Vercel, caso você faça deploys temporários.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.vercel\.app$',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1:5173',
+    'http://localhost:5173',
+    'https://msn-reborn-ochre.vercel.app',
+    'https://emanuelangelo1992.pythonanywhere.com',
+]
+
+# O frontend usa Token Authentication, então não precisa enviar cookies cross-site.
+CORS_ALLOW_CREDENTIALS = False
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
 
@@ -113,15 +194,19 @@ CHANNEL_LAYERS = {
     },
 }
 
-FRONTEND_URL = 'http://127.0.0.1:5173'
+# ==========================================================
+# SPOTIFY
+# ==========================================================
+# 1. No Spotify Developer Dashboard, cadastre as duas Redirect URIs:
+#    - http://127.0.0.1:8000/api/spotify/callback/
+#    - https://emanuelangelo1992.pythonanywhere.com/api/spotify/callback/
+# 2. Cole seu Client Secret real abaixo apenas no seu ambiente local/servidor.
+# 3. Nunca suba Client Secret real para repositório público.
 
-# ==========================================================
-# SPOTIFY - DESENVOLVIMENTO LOCAL
-# ==========================================================
-# O Client Secret não deve ser versionado. Cole o seu valor local aqui para testar.
 SPOTIFY_CLIENT_ID = '49483fb723b942f48c3cf1aa25d8be96'
 SPOTIFY_CLIENT_SECRET = '91735089a4c445df825036adee4d207c'
-SPOTIFY_REDIRECT_URI = 'http://127.0.0.1:8000/api/spotify/callback/'
 SPOTIFY_SCOPES = [
-    "user-read-currently-playing",
+    'user-read-currently-playing',
+    'user-read-playback-state',
+    'user-read-private',
 ]

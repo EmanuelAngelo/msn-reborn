@@ -1,12 +1,5 @@
 import axios from 'axios'
 
-function getCookie(name) {
-  const value = `; ${document.cookie}`
-  const parts = value.split(`; ${name}=`)
-  if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift())
-  return null
-}
-
 export function getAuthToken() {
   return localStorage.getItem('msn_auth_token')
 }
@@ -20,20 +13,22 @@ export function clearAuthToken() {
 }
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api',
-  withCredentials: true,
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://emanuelangelo1992.pythonanywhere.com/api',
+  withCredentials: false,
 })
 
 api.interceptors.request.use((config) => {
   const token = getAuthToken()
-  if (token) config.headers.Authorization = `Token ${token}`
 
-  const csrf = getCookie('csrftoken')
-  if (csrf) config.headers['X-CSRFToken'] = csrf
+  if (token) {
+    config.headers.Authorization = `Token ${token}`
+  }
 
   return config
 })
 
 export async function initCsrf() {
-  await api.get('/auth/csrf/')
+  // Mantido apenas para compatibilidade com imports antigos.
+  // O frontend usa Token Authentication e não depende mais de CSRF/cookie.
+  return Promise.resolve()
 }

@@ -1,4 +1,4 @@
-import { api, clearAuthToken, initCsrf, setAuthToken } from './api'
+import { api, clearAuthToken, setAuthToken } from './api'
 
 function normalizeAuthResponse(data) {
   if (data?.token) setAuthToken(data.token)
@@ -11,13 +11,11 @@ export async function getMe() {
 }
 
 export async function login(email, password) {
-  await initCsrf()
   const { data } = await api.post('/auth/login/', { email, password })
   return normalizeAuthResponse(data)
 }
 
 export async function register(payload) {
-  await initCsrf()
   const { data } = await api.post('/auth/register/', payload)
   return normalizeAuthResponse(data)
 }
