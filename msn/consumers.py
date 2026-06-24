@@ -3,6 +3,8 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
 
+from .chat_events import message_to_ws_payload
+from .presence import get_public_status
 from .models import Conversation, ConversationParticipant, Message, UserProfile
 
 
@@ -29,13 +31,13 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
         await self.channel_layer.group_add(self.global_group, self.channel_name)
         await self.channel_layer.group_add(self.user_group, self.channel_name)
         await self.accept()
-        current_status = await self.ensure_user_online_when_needed()
+        await self.ensure_user_online_when_needed()
         await self.channel_layer.group_send(
             self.global_group,
             {
                 'type': 'presence.status',
                 'user_id': str(self.user.id),
-                'status': current_status,
+                'status': await self.get_public_status_for_broadcast(),
             },
         )
 
@@ -121,6 +123,10 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
             return None
 
     @database_sync_to_async
+    def get_public_status_for_broadcast(self):
+        return get_public_status(self.user.profile)
+
+    @database_sync_to_async
     def ensure_user_online_when_needed(self):
         profile = self.user.profile
         if profile.status == UserProfile.Status.OFFLINE:
@@ -131,6 +137,8 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
     @database_sync_to_async
     def set_user_status(self, status):
         profile = self.user.profile
+        if profile.status == UserProfile.Status.INVISIBLE:
+            return
         profile.status = status
         if status == UserProfile.Status.OFFLINE:
             profile.last_seen_at = timezone.now()
@@ -277,19 +285,4 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             type=message_type,
         )
         conversation.save(update_fields=['updated_at'])
-
-        return {
-            'id': str(message.id),
-            'conversation': str(message.conversation_id),
-            'sender': str(message.sender_id),
-            'sender_name': message.sender.profile.display_name or message.sender.username,
-            'sender_obj': {
-                'id': str(message.sender.id),
-                'username': message.sender.username,
-                'email': message.sender.email,
-            },
-            'type': message.type,
-            'content': message.content,
-            'is_read': message.is_read,
-            'sent_at': message.sent_at.isoformat(),
-        }
+        return message_to_ws_payload(message)

@@ -50,6 +50,16 @@ export async function sendNudge(conversationId) {
   return data
 }
 
+export async function blockContact(contactId) {
+  const { data } = await api.post(`/contacts/${contactId}/block/`)
+  return data
+}
+
+export async function toggleFavoriteContact(contactId) {
+  const { data } = await api.post(`/contacts/${contactId}/favorite/`)
+  return data
+}
+
 export async function getMusicStatus() {
   const { data } = await api.get('/music/status/')
   return data

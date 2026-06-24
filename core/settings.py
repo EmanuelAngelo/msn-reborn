@@ -1,35 +1,48 @@
+import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / '.env')
 
 # ==========================================================
 # CONFIGURAÇÃO PRINCIPAL
 # ==========================================================
 
-SECRET_KEY = "dev-only-msn-reborn-secret-key"
-DEBUG = True
+SECRET_KEY = os.getenv('SECRET_KEY', 'dev-only-msn-reborn-secret-key-change-in-production')
+DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
 ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "emanuelangelo1992.pythonanywhere.com",
-    ".pythonanywhere.com",
+    host.strip()
+    for host in os.getenv(
+        'ALLOWED_HOSTS',
+        '127.0.0.1,localhost,backend,frontend,.pythonanywhere.com',
+    ).split(',')
+    if host.strip()
 ]
 
-APP_ENV = "production"
+APP_ENV = os.getenv('APP_ENV', 'local')
 
-LOCAL_FRONTEND_URL = "http://127.0.0.1:5173"
-LOCAL_SPOTIFY_REDIRECT_URI = "http://127.0.0.1:8000/api/spotify/callback/"
+LOCAL_FRONTEND_URL = os.getenv('LOCAL_FRONTEND_URL', 'http://127.0.0.1:5173')
+LOCAL_SPOTIFY_REDIRECT_URI = os.getenv(
+    'LOCAL_SPOTIFY_REDIRECT_URI',
+    'http://127.0.0.1:8000/api/spotify/callback/',
+)
 
-PRODUCTION_FRONTEND_URL = "https://msn-reborn-ochre.vercel.app"
-PRODUCTION_SPOTIFY_REDIRECT_URI = "https://emanuelangelo1992.pythonanywhere.com/api/spotify/callback/"
+PRODUCTION_FRONTEND_URL = os.getenv('PRODUCTION_FRONTEND_URL', 'https://msn-reborn-ochre.vercel.app')
+PRODUCTION_SPOTIFY_REDIRECT_URI = os.getenv(
+    'PRODUCTION_SPOTIFY_REDIRECT_URI',
+    'https://emanuelangelo1992.pythonanywhere.com/api/spotify/callback/',
+)
 
-if APP_ENV == "production":
-    FRONTEND_URL = PRODUCTION_FRONTEND_URL
-    SPOTIFY_REDIRECT_URI = PRODUCTION_SPOTIFY_REDIRECT_URI
+if APP_ENV == 'production':
+    FRONTEND_URL = os.getenv('FRONTEND_URL', PRODUCTION_FRONTEND_URL)
+    SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI', PRODUCTION_SPOTIFY_REDIRECT_URI)
 else:
-    FRONTEND_URL = LOCAL_FRONTEND_URL
-    SPOTIFY_REDIRECT_URI = LOCAL_SPOTIFY_REDIRECT_URI
+    FRONTEND_URL = os.getenv('FRONTEND_URL', LOCAL_FRONTEND_URL)
+    SPOTIFY_REDIRECT_URI = os.getenv('SPOTIFY_REDIRECT_URI', LOCAL_SPOTIFY_REDIRECT_URI)
 
 
 # ==========================================================
@@ -37,23 +50,23 @@ else:
 # ==========================================================
 
 INSTALLED_APPS = [
-    "daphne",
+    'daphne',
 
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
 
-    "corsheaders",
+    'corsheaders',
 
-    "rest_framework",
-    "rest_framework.authtoken",
-    "drf_spectacular",
-    "channels",
+    'rest_framework',
+    'rest_framework.authtoken',
+    'drf_spectacular',
+    'channels',
 
-    "msn",
+    'msn',
 ]
 
 
@@ -62,16 +75,16 @@ INSTALLED_APPS = [
 # ==========================================================
 
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
+    'corsheaders.middleware.CorsMiddleware',
 
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
+    'django.middleware.security.SecurityMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
 
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 
@@ -79,9 +92,9 @@ MIDDLEWARE = [
 # URLS / ASGI / WSGI
 # ==========================================================
 
-ROOT_URLCONF = "core.urls"
-ASGI_APPLICATION = "core.asgi.application"
-WSGI_APPLICATION = "core.wsgi.application"
+ROOT_URLCONF = 'core.urls'
+ASGI_APPLICATION = 'core.asgi.application'
+WSGI_APPLICATION = 'core.wsgi.application'
 
 
 # ==========================================================
@@ -90,14 +103,14 @@ WSGI_APPLICATION = "core.wsgi.application"
 
 TEMPLATES = [
     {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
             ],
         },
     },
@@ -108,19 +121,29 @@ TEMPLATES = [
 # BANCO DE DADOS
 # ==========================================================
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+if os.getenv('DATABASE_URL'):
+    import dj_database_url
+
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.getenv('DATABASE_URL'),
+            conn_max_age=600,
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.getenv('SQLITE_PATH', str(BASE_DIR / 'db.sqlite3')),
+        }
+    }
 
 
 # ==========================================================
 # USUÁRIO CUSTOMIZADO
 # ==========================================================
 
-AUTH_USER_MODEL = "msn.User"
+AUTH_USER_MODEL = 'msn.User'
 
 
 # ==========================================================
@@ -129,16 +152,16 @@ AUTH_USER_MODEL = "msn.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     },
     {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
     },
     {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
     },
     {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
 
@@ -147,8 +170,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # LOCALIZAÇÃO
 # ==========================================================
 
-LANGUAGE_CODE = "pt-br"
-TIME_ZONE = "America/Fortaleza"
+LANGUAGE_CODE = 'pt-br'
+TIME_ZONE = 'America/Fortaleza'
 USE_I18N = True
 USE_TZ = True
 
@@ -157,13 +180,13 @@ USE_TZ = True
 # STATIC / MEDIA
 # ==========================================================
 
-STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # ==========================================================
@@ -171,15 +194,16 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ==========================================================
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.BasicAuthentication",
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.IsAuthenticated",
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
     ],
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50,
 }
 
 
@@ -188,10 +212,10 @@ REST_FRAMEWORK = {
 # ==========================================================
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "MSN Reborn API",
-    "DESCRIPTION": "API REST do MVP inspirado no antigo MSN: autenticação, perfil, contatos, conversas, mensagens, presença e Spotify.",
-    "VERSION": "0.1.0",
-    "SERVE_INCLUDE_SCHEMA": False,
+    'TITLE': 'MSN Reborn API',
+    'DESCRIPTION': 'API REST do MVP inspirado no antigo MSN: autenticação, perfil, contatos, conversas, mensagens, presença e Spotify.',
+    'VERSION': '0.2.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
 
@@ -199,72 +223,86 @@ SPECTACULAR_SETTINGS = {
 # CORS / CSRF
 # ==========================================================
 
+_default_cors = (
+    'http://127.0.0.1:5173,http://localhost:5173,'
+    'http://127.0.0.1:8080,http://localhost:8080,'
+    'https://msn-reborn-ochre.vercel.app'
+)
+
 CORS_ALLOWED_ORIGINS = [
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "https://msn-reborn-ochre.vercel.app",
+    origin.strip()
+    for origin in os.getenv('CORS_ALLOWED_ORIGINS', _default_cors).split(',')
+    if origin.strip()
 ]
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",
+    r'^https://.*\.vercel\.app$',
 ]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:5173",
-    "http://localhost:5173",
-    "https://msn-reborn-ochre.vercel.app",
-    "https://emanuelangelo1992.pythonanywhere.com",
+    origin.strip()
+    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', _default_cors).split(',')
+    if origin.strip()
 ]
 
 CORS_ALLOW_CREDENTIALS = False
 
 CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
 ]
 
-SESSION_COOKIE_SAMESITE = "Lax"
-CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'
 
 
 # ==========================================================
 # CHANNELS
 # ==========================================================
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
-    },
-}
+REDIS_URL = os.getenv('REDIS_URL', '')
+
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 
 
 # ==========================================================
 # SPOTIFY
 # ==========================================================
-# No Spotify Developer Dashboard, cadastre:
-# - http://127.0.0.1:8000/api/spotify/callback/
-# - https://emanuelangelo1992.pythonanywhere.com/api/spotify/callback/
 
-SPOTIFY_CLIENT_ID = '49483fb723b942f48c3cf1aa25d8be96'
-SPOTIFY_CLIENT_SECRET = '91735089a4c445df825036adee4d207c'
+SPOTIFY_CLIENT_ID = os.getenv('SPOTIFY_CLIENT_ID', '')
+SPOTIFY_CLIENT_SECRET = os.getenv('SPOTIFY_CLIENT_SECRET', '')
 SPOTIFY_SCOPES = [
-    "user-read-currently-playing",
-    "user-read-playback-state",
-    "user-read-private",
+    'user-read-currently-playing',
+    'user-read-playback-state',
+    'user-read-private',
 ]

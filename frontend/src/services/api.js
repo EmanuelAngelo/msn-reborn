@@ -13,7 +13,7 @@ export function clearAuthToken() {
 }
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://emanuelangelo1992.pythonanywhere.com/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api',
   withCredentials: false,
 })
 
@@ -32,6 +32,11 @@ export function getWebSocketBaseUrl() {
   }
 
   const apiUrl = api.defaults.baseURL || window.location.origin
+
+  if (apiUrl.startsWith('/')) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}`
+  }
 
   try {
     const url = new URL(apiUrl)

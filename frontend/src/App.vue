@@ -347,7 +347,7 @@ onBeforeUnmount(() => {
 
       <div class="min-h-0 overflow-hidden">
         <div v-if="error" class="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">{{ error }}</div>
-        <ChatWindow :contact="selectedContact" :current-user="profile" />
+        <ChatWindow :contact="selectedContact" :current-user="profile" @contact-changed="handleContactsChanged" />
       </div>
     </div>
   </main>

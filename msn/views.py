@@ -19,6 +19,7 @@ from rest_framework.decorators import action, api_view, parser_classes, permissi
 from rest_framework.response import Response
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
+from .chat_events import broadcast_chat_message
 from .models import Contact, ContactRequest, Conversation, ConversationParticipant, Message, SpotifyIntegration, UserMusicStatus
 from .serializers import (
     ContactRequestSerializer, ContactSerializer, ConversationSerializer, MessageSerializer,
@@ -43,11 +44,14 @@ def notify_presence(event_type, **payload):
     _group_send('presence_global', {'type': event_type, **payload})
 
 
+from .presence import get_public_status
+
+
 def broadcast_user_status(user):
     notify_presence(
         'presence.status',
         user_id=str(user.id),
-        status=user.profile.status,
+        status=get_public_status(user.profile),
     )
 
 
@@ -209,13 +213,33 @@ class ContactViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return (
             Contact.objects
-            .select_related('contact__profile', 'contact__music_status')
+            .select_related(
+                'contact__profile',
+                'contact__music_status',
+                'contact__music_preference',
+            )
             .filter(owner=self.request.user, is_blocked=False)
             .order_by('-is_favorite', 'contact__profile__display_name')
         )
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def block(self, request, pk=None):
+        contact = self.get_object()
+        contact.is_blocked = True
+        contact.save(update_fields=['is_blocked', 'updated_at'])
+        notify_user(request.user.id, 'contacts.changed', reason='contact_blocked')
+        return Response({'detail': 'Contato bloqueado.'})
+
+    @action(detail=True, methods=['post'])
+    def favorite(self, request, pk=None):
+        contact = self.get_object()
+        contact.is_favorite = not contact.is_favorite
+        contact.save(update_fields=['is_favorite', 'updated_at'])
+        serializer = self.get_serializer(contact)
+        return Response(serializer.data)
 
 
 class ContactRequestViewSet(viewsets.ModelViewSet):
@@ -326,6 +350,14 @@ class ConversationViewSet(viewsets.ModelViewSet):
         ConversationParticipant.objects.create(conversation=conversation, user=contact_user)
         return Response(ConversationSerializer(conversation).data, status=201)
 
+    def _mark_messages_read(self, conversation, user):
+        now = timezone.now()
+        conversation.messages.filter(is_read=False).exclude(sender=user).update(is_read=True)
+        ConversationParticipant.objects.filter(
+            conversation=conversation,
+            user=user,
+        ).update(last_read_at=now)
+
     @action(detail=True, methods=['get', 'post'])
     def messages(self, request, pk=None):
         conversation = self.get_object()
@@ -334,8 +366,11 @@ class ConversationViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             message = serializer.save(conversation=conversation, sender=request.user)
             conversation.save(update_fields=['updated_at'])
+            broadcast_chat_message(message)
             return Response(MessageSerializer(message).data, status=201)
-        messages = conversation.messages.select_related('sender__profile').all()[:100]
+
+        messages = conversation.messages.select_related('sender__profile').order_by('sent_at')[:100]
+        self._mark_messages_read(conversation, request.user)
         return Response(MessageSerializer(messages, many=True).data)
 
     @action(detail=True, methods=['post'])
@@ -345,8 +380,10 @@ class ConversationViewSet(viewsets.ModelViewSet):
             conversation=conversation,
             sender=request.user,
             type=Message.Type.NUDGE,
-            content='Chamou sua atenção!'
+            content='Chamou sua atenção!',
         )
+        conversation.save(update_fields=['updated_at'])
+        broadcast_chat_message(message)
         return Response(MessageSerializer(message).data, status=201)
 
 

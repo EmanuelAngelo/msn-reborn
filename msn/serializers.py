@@ -75,16 +75,58 @@ class MusicPreferenceSerializer(serializers.ModelSerializer):
 
 
 class ContactSerializer(serializers.ModelSerializer):
-    contact_profile = UserProfileSerializer(source='contact.profile', read_only=True)
-    music_status = MusicStatusSerializer(source='contact.music_status', read_only=True)
+    contact_profile = serializers.SerializerMethodField()
+    music_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Contact
         fields = [
             'id', 'contact', 'contact_profile', 'music_status',
-            'nickname', 'is_blocked', 'is_favorite', 'created_at'
+            'nickname', 'is_blocked', 'is_favorite', 'created_at',
         ]
         read_only_fields = ['created_at']
+
+    def get_contact_profile(self, obj):
+        profile = obj.contact.profile
+        data = UserProfileSerializer(profile, context=self.context).data
+        request = self.context.get('request')
+
+        if (
+            profile.status == UserProfile.Status.INVISIBLE
+            and request
+            and request.user != obj.contact
+        ):
+            data = {**data, 'status': UserProfile.Status.OFFLINE}
+
+        return data
+
+    def get_music_status(self, obj):
+        pref = getattr(obj.contact, 'music_preference', None)
+        status = getattr(obj.contact, 'music_status', None)
+
+        if not pref or not status:
+            return None
+
+        if not pref.enabled:
+            return None
+
+        if pref.visibility == UserMusicPreference.Visibility.PRIVATE:
+            request = self.context.get('request')
+            if not request or request.user != obj.contact:
+                return None
+
+        if not pref.show_when_paused and not status.is_playing:
+            return None
+
+        data = MusicStatusSerializer(status).data
+
+        if not pref.show_album_cover:
+            data['album_cover_url'] = ''
+
+        if not pref.show_spotify_link:
+            data['spotify_url'] = ''
+
+        return data
 
 
 class ContactRequestSerializer(serializers.ModelSerializer):

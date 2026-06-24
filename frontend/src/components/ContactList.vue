@@ -70,7 +70,8 @@ function initials(profile) {
 
       <span class="min-w-0 flex-1">
         <span class="block truncate font-semibold text-slate-800">
-          {{ item.contact_profile?.display_name || item.contact_profile?.email || 'Contato' }}
+          <span v-if="item.is_favorite" class="text-yellow-500">★ </span>
+          {{ item.nickname || item.contact_profile?.display_name || item.contact_profile?.email || 'Contato' }}
         </span>
         <span class="block truncate text-xs text-slate-500">
           {{ item.contact_profile?.personal_message || 'Sem mensagem pessoal' }}

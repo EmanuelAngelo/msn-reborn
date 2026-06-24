@@ -2,7 +2,7 @@
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { areWebSocketsEnabled } from '../services/api'
 import { createChatSocket } from '../services/chatSocket'
-import { listMessages, openDirectConversation, sendMessage as sendMessageRest, sendNudge as sendNudgeRest } from '../services/msn'
+import { listMessages, openDirectConversation, sendMessage as sendMessageRest, sendNudge as sendNudgeRest, blockContact, toggleFavoriteContact } from '../services/msn'
 
 const props = defineProps({
   contact: {
@@ -14,6 +14,8 @@ const props = defineProps({
     default: null,
   },
 })
+
+const emit = defineEmits(['contact-changed'])
 
 const conversation = ref(null)
 const messages = ref([])
@@ -35,10 +37,15 @@ function messageAuthor(message) {
   return message.sender_name || message.sender?.username || message.sender_obj?.username || 'Usuário'
 }
 
+function sortMessages() {
+  messages.value.sort((a, b) => new Date(a.sent_at) - new Date(b.sent_at))
+}
+
 function addMessage(message) {
   if (!message?.id) return
   if (messages.value.some((item) => item.id === message.id)) return
   messages.value.push(message)
+  sortMessages()
 }
 
 function setMessagesWithoutDuplicates(newMessages) {
@@ -47,6 +54,7 @@ function setMessagesWithoutDuplicates(newMessages) {
     if (message?.id) map.set(message.id, message)
   }
   messages.value = Array.from(map.values())
+  sortMessages()
 }
 
 async function scrollToBottom() {
@@ -208,6 +216,28 @@ async function sendNudge() {
   }
 }
 
+async function handleBlockContact() {
+  if (!props.contact?.id) return
+  if (!window.confirm('Bloquear este contato? Ele será removido da sua lista.')) return
+
+  try {
+    await blockContact(props.contact.id)
+    emit('contact-changed')
+  } catch {
+    error.value = 'Não foi possível bloquear o contato.'
+  }
+}
+
+async function handleToggleFavorite() {
+  if (!props.contact?.id) return
+
+  try {
+    const updated = await toggleFavoriteContact(props.contact.id)
+    emit('contact-changed', updated)
+  } catch {
+    error.value = 'Não foi possível atualizar favorito.'
+  }
+}
 function handleTyping() {
   if (!areWebSocketsEnabled() || !chatSocket) return
 
@@ -231,11 +261,31 @@ onBeforeUnmount(() => {
 <template>
   <section class="msn-window flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-sky-700 bg-white/95">
     <div class="msn-titlebar shrink-0 px-4 py-3 text-white">
-      <div class="font-bold">
-        {{ contact?.contact_profile?.display_name || contact?.contact_profile?.email || 'Selecione um contato' }}
-      </div>
-      <div v-if="contact?.contact_profile" class="text-xs text-white/90">
-        Status: {{ contact.contact_profile.status }}
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <div class="font-bold">
+            {{ contact?.contact_profile?.display_name || contact?.contact_profile?.email || 'Selecione um contato' }}
+          </div>
+          <div v-if="contact?.contact_profile" class="text-xs text-white/90">
+            Status: {{ contact.contact_profile.status }}
+          </div>
+        </div>
+        <div v-if="contact" class="flex shrink-0 gap-1">
+          <button
+            class="rounded bg-white/20 px-2 py-1 text-xs hover:bg-white/30"
+            :title="contact.is_favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'"
+            @click="handleToggleFavorite"
+          >
+            {{ contact.is_favorite ? '★' : '☆' }}
+          </button>
+          <button
+            class="rounded bg-white/20 px-2 py-1 text-xs hover:bg-white/30"
+            title="Bloquear contato"
+            @click="handleBlockContact"
+          >
+            Bloquear
+          </button>
+        </div>
       </div>
     </div>
 

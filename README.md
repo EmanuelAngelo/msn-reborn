@@ -30,7 +30,39 @@ A URI precisa ser idêntica à do `.env`, incluindo a barra final `/`.
 
 > Importante: se você já compartilhou um Client Secret ou token em algum lugar, gere um novo Client Secret no painel do Spotify.
 
-## 2. Rodar backend
+## Rodar com Docker (recomendado)
+
+Pré-requisito: Docker e Docker Compose instalados.
+
+```bash
+cp .env.example .env
+# Edite .env se quiser configurar Spotify
+
+docker compose up -d --build
+```
+
+Acesse:
+
+```text
+Frontend:  http://127.0.0.1:8081
+Backend:   http://127.0.0.1:8010/api/docs/
+```
+
+> As portas padrão são **8010** (backend) e **8081** (frontend) para evitar conflito com outros projetos. Ajuste em `docker-compose.yml` se necessário.
+
+Serviços incluídos:
+
+- **backend** — Django + Daphne (REST + WebSocket)
+- **frontend** — Vue 3 via Nginx (proxy `/api` e `/ws`)
+- **redis** — Channel layer para tempo real entre instâncias
+
+Parar:
+
+```bash
+docker compose down
+```
+
+## 2. Rodar backend (local sem Docker)
 
 No Windows PowerShell, dentro da pasta do projeto:
 
@@ -100,6 +132,8 @@ PATCH  /api/me/status/
 
 GET    /api/users/search/?q=emanuel
 GET    /api/contacts/
+POST   /api/contacts/{id}/block/
+POST   /api/contacts/{id}/favorite/
 GET    /api/contact-requests/
 POST   /api/contact-requests/
 POST   /api/contact-requests/{id}/accept/
