@@ -27,9 +27,5 @@ const items = [
       <span class="reborn-nav-icon" aria-hidden="true">{{ item.icon }}</span>
       <span class="reborn-nav-label">{{ item.label }}</span>
     </button>
-
-    <div class="reborn-sidebar-mascot" aria-hidden="true">
-      <img src="/reborn-mascot.png" alt="" class="reborn-sidebar-mascot-img" onerror="this.parentElement.classList.add('reborn-sidebar-mascot--fallback')" />
-    </div>
   </nav>
 </template>

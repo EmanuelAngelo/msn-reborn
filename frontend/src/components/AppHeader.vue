@@ -5,7 +5,7 @@ defineEmits(['spotify', 'logout'])
 <template>
   <header class="reborn-header">
     <div class="reborn-header-brand">
-      <img src="/reborn-mascot.png" alt="" class="reborn-header-logo" />
+      <span class="reborn-header-logo" aria-hidden="true">🦋</span>
       <span class="reborn-header-title">Reborn</span>
     </div>
 

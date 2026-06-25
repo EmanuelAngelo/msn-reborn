@@ -480,12 +480,12 @@ body {
 .reborn-header-logo {
   width: 2rem;
   height: 2rem;
-  object-fit: contain;
+  display: grid;
+  place-items: center;
   border-radius: .45rem;
-}
-
-.reborn-header-logo-fallback {
-  font-size: 1.35rem;
+  background: rgba(255,255,255,.15);
+  font-size: 1.15rem;
+  line-height: 1;
 }
 
 .reborn-header-title {
@@ -603,24 +603,6 @@ body {
 .reborn-nav-icon {
   font-size: 1rem;
   line-height: 1;
-}
-
-.reborn-sidebar-mascot {
-  margin-top: auto;
-  padding-top: 1rem;
-  display: grid;
-  place-items: center;
-}
-
-.reborn-sidebar-mascot-img {
-  width: 100%;
-  max-width: 7rem;
-  object-fit: contain;
-  opacity: .9;
-}
-
-.reborn-sidebar-mascot--fallback {
-  min-height: 4rem;
 }
 
 .reborn-main {
@@ -1426,14 +1408,15 @@ body {
 }
 
 .reborn-empty-chat-illustration {
-  width: min(100%, 12rem);
+  width: 4.5rem;
+  height: 4.5rem;
   margin-bottom: 1rem;
-}
-
-.reborn-empty-chat-img {
-  width: 100%;
-  object-fit: contain;
-  opacity: .85;
+  display: grid;
+  place-items: center;
+  border-radius: 1.25rem;
+  background: linear-gradient(145deg, #dbeafe, #bae6fd);
+  font-size: 2rem;
+  box-shadow: 0 8px 24px rgba(14, 116, 189, .15);
 }
 
 .reborn-empty-chat-title {

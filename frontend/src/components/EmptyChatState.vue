@@ -4,9 +4,7 @@ defineEmits(['start'])
 
 <template>
   <div class="reborn-empty-chat">
-    <div class="reborn-empty-chat-illustration" aria-hidden="true">
-      <img src="/reborn-mascot.png" alt="" class="reborn-empty-chat-img" />
-    </div>
+    <div class="reborn-empty-chat-illustration" aria-hidden="true">💬</div>
     <h2 class="reborn-empty-chat-title">Nenhuma conversa aberta</h2>
     <p class="reborn-empty-chat-text">
       Selecione um contato na lista ou inicie uma nova conversa para começar a trocar mensagens.
