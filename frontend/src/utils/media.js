@@ -1,6 +1,14 @@
 export function getMediaBaseUrl() {
   const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
 
+  if (
+    (apiBase.startsWith('http://127.0.0.1') || apiBase.startsWith('http://localhost')) &&
+    !window.location.hostname.includes('127.0.0.1') &&
+    !window.location.hostname.includes('localhost')
+  ) {
+    return 'https://emanuelangelo1992.pythonanywhere.com'
+  }
+
   if (apiBase.startsWith('/')) {
     return window.location.origin
   }
