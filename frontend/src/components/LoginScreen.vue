@@ -4,9 +4,10 @@ defineProps({
   form: { type: Object, required: true },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
+  theme: { type: String, default: 'light' },
 })
 
-defineEmits(['submit', 'toggle-mode'])
+defineEmits(['submit', 'toggle-mode', 'toggle-theme'])
 
 const nostalgicQuotes = [
   'Oi, tudo bem?',
@@ -35,6 +36,16 @@ function statusClass(status) {
 
 <template>
   <div class="login-scene">
+    <button
+      type="button"
+      class="login-theme-toggle"
+      :title="theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'"
+      @click="$emit('toggle-theme')"
+    >
+      <span aria-hidden="true">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
+      {{ theme === 'dark' ? 'Claro' : 'Escuro' }}
+    </button>
+
     <div class="login-cloud login-cloud-1" aria-hidden="true"></div>
     <div class="login-cloud login-cloud-2" aria-hidden="true"></div>
     <div class="login-cloud login-cloud-3" aria-hidden="true"></div>
@@ -71,11 +82,7 @@ function statusClass(status) {
       <section class="msn-window login-window">
         <header class="msn-titlebar login-titlebar">
           <div class="login-titlebar-left">
-            <span class="login-window-icon" aria-hidden="true">🦋</span>
-            <div>
-              <p class="login-titlebar-brand">Reborn</p>
-              <p class="login-titlebar-sub">Messenger</p>
-            </div>
+            <img src="/reborn-logo.png" alt="Reborn" class="login-titlebar-logo" />
           </div>
           <div class="login-window-controls" aria-hidden="true">
             <span></span><span></span><span></span>
@@ -84,9 +91,7 @@ function statusClass(status) {
 
         <div class="login-body">
           <div class="login-hero">
-            <div class="login-avatar-ring">
-              <div class="login-avatar">🙂</div>
-            </div>
+            <img src="/reborn-logo.png" alt="Reborn Messenger" class="login-hero-logo" />
             <h1 class="login-heading">
               {{ mode === 'login' ? 'Conecte-se ao Messenger' : 'Criar nova conta' }}
             </h1>

@@ -10,6 +10,7 @@ import ProfilePanel from './components/ProfilePanel.vue'
 import EmptyChatState from './components/EmptyChatState.vue'
 import LoginScreen from './components/LoginScreen.vue'
 import OnlineNotifications from './components/OnlineNotifications.vue'
+import { useTheme } from './composables/useTheme'
 import { getMe, login as loginRequest, register as registerRequest, logout as logoutRequest } from './services/auth'
 import { getMusicStatus, listContacts, listConversations, spotifyConnectUrl, syncSpotify } from './services/msn'
 import { areWebSocketsEnabled } from './services/api'
@@ -29,6 +30,8 @@ const refreshSignal = ref(0)
 const onlineNotifications = ref([])
 const activeNav = ref('profile')
 const contactTypingByUserId = ref({})
+
+const { theme, toggleTheme } = useTheme()
 
 const form = ref({
   email: '',
@@ -754,12 +757,19 @@ onBeforeUnmount(() => {
     :form="form"
     :loading="loading"
     :error="error"
+    :theme="theme"
     @submit="handleAuthSubmit"
     @toggle-mode="toggleAuthMode"
+    @toggle-theme="toggleTheme"
   />
 
   <main v-else class="reborn-app" :class="{ 'has-chat-taskbar': minimizedChats.length }">
-    <AppHeader @spotify="refreshSpotify" @logout="logout" />
+    <AppHeader
+      :theme="theme"
+      @spotify="refreshSpotify"
+      @logout="logout"
+      @toggle-theme="toggleTheme"
+    />
 
     <div class="reborn-body">
       <AppSidebar :active="activeNav" @navigate="navigateTo" />

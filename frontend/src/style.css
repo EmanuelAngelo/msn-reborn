@@ -87,6 +87,30 @@ body {
   overflow: hidden;
 }
 
+.login-theme-toggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .45rem .85rem;
+  border: 1px solid rgba(14, 116, 189, .25);
+  border-radius: 999px;
+  background: rgba(255,255,255,.85);
+  color: #0369a1;
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(14, 116, 189, .12);
+  backdrop-filter: blur(6px);
+}
+
+.login-theme-toggle:hover {
+  background: #fff;
+}
+
 .login-cloud {
   position: absolute;
   border-radius: 999px;
@@ -252,14 +276,11 @@ body {
   gap: .65rem;
 }
 
-.login-window-icon {
-  width: 2.25rem;
-  height: 2.25rem;
-  display: grid;
-  place-items: center;
-  border-radius: .5rem;
-  background: rgba(255,255,255,.2);
-  font-size: 1.25rem;
+.login-titlebar-logo {
+  height: 2rem;
+  width: auto;
+  object-fit: contain;
+  border-radius: .35rem;
 }
 
 .login-titlebar-brand {
@@ -295,6 +316,14 @@ body {
 .login-hero {
   text-align: center;
   margin-bottom: 1.25rem;
+}
+
+.login-hero-logo {
+  display: block;
+  width: min(100%, 11rem);
+  height: auto;
+  margin: 0 auto .85rem;
+  object-fit: contain;
 }
 
 .login-avatar-ring {
@@ -479,14 +508,11 @@ body {
 }
 
 .reborn-header-logo {
-  width: 2rem;
-  height: 2rem;
-  display: grid;
-  place-items: center;
-  border-radius: .45rem;
-  background: rgba(255,255,255,.15);
-  font-size: 1.15rem;
-  line-height: 1;
+  height: 2.35rem;
+  width: auto;
+  max-width: 7.5rem;
+  object-fit: contain;
+  border-radius: .35rem;
 }
 
 .reborn-header-title {
@@ -519,6 +545,25 @@ body {
 
 .reborn-btn-spotify:hover {
   filter: brightness(1.06);
+}
+
+.reborn-btn-theme {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .45rem .85rem;
+  border: 1px solid rgba(255,255,255,.55);
+  border-radius: 999px;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.reborn-btn-theme:hover {
+  background: rgba(255,255,255,.22);
 }
 
 .reborn-btn-logout {
@@ -1878,4 +1923,293 @@ body {
 
 .msn-window-btn:hover {
   background: rgba(255, 255, 255, .35);
+}
+
+/* ===== Tema escuro ===== */
+
+[data-theme="dark"] body {
+  color: #e2e8f0;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(56, 189, 248, .12), transparent 22%),
+    linear-gradient(180deg, #0f172a 0%, #1e293b 45%, #0b1220 100%);
+}
+
+[data-theme="dark"] .reborn-app {
+  background:
+    radial-gradient(circle at 15% 10%, rgba(56, 189, 248, .08), transparent 22%),
+    linear-gradient(165deg, #0f172a 0%, #1e293b 38%, #0b1220 100%);
+}
+
+[data-theme="dark"] .reborn-sidebar {
+  background: linear-gradient(180deg, rgba(30, 41, 59, .92), rgba(15, 23, 42, .88));
+  border-color: rgba(71, 85, 105, .55);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
+}
+
+[data-theme="dark"] .reborn-nav-item {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .reborn-nav-item:hover {
+  background: rgba(255, 255, 255, .08);
+}
+
+[data-theme="dark"] .reborn-card {
+  background: rgba(30, 41, 59, .94);
+  border-color: rgba(71, 85, 105, .65);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+
+[data-theme="dark"] .reborn-card-title {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .reborn-field-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .reborn-input,
+[data-theme="dark"] .reborn-select {
+  background: #1e293b;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .reborn-input:focus,
+[data-theme="dark"] .reborn-select:focus {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, .2);
+}
+
+[data-theme="dark"] .reborn-btn-photo {
+  background: #1e293b;
+  border-color: #475569;
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .reborn-photo-hint,
+[data-theme="dark"] .reborn-muted-text {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .reborn-music-pill {
+  background: linear-gradient(90deg, #1e3a5f, #1e293b);
+  border-color: #334155;
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .reborn-filter-pill {
+  background: #1e293b;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .reborn-contact-chip,
+[data-theme="dark"] .reborn-contact-row,
+[data-theme="dark"] .reborn-search-result,
+[data-theme="dark"] .reborn-chat-list-item {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+[data-theme="dark"] .reborn-contact-chip:hover,
+[data-theme="dark"] .reborn-contact-chip--selected,
+[data-theme="dark"] .reborn-contact-row:hover,
+[data-theme="dark"] .reborn-contact-row--selected,
+[data-theme="dark"] .reborn-chat-list-item--active {
+  background: #334155;
+  border-color: #38bdf8;
+}
+
+[data-theme="dark"] .reborn-contact-chip-name,
+[data-theme="dark"] .reborn-contact-row-name,
+[data-theme="dark"] .reborn-search-result-name,
+[data-theme="dark"] .reborn-chat-list-name,
+[data-theme="dark"] .reborn-empty-chat-title {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .reborn-contact-chip-msg,
+[data-theme="dark"] .reborn-contact-row-msg,
+[data-theme="dark"] .reborn-empty-chat-text {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .reborn-btn-outline {
+  background: #1e293b;
+  border-color: #38bdf8;
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .reborn-btn-ghost {
+  background: #334155;
+  border-color: #475569;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .reborn-request-item {
+  background: #1e293b;
+  border-color: #475569;
+}
+
+[data-theme="dark"] .reborn-request-pending {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .reborn-empty-chat-illustration {
+  background: linear-gradient(145deg, #1e3a5f, #1e293b);
+}
+
+[data-theme="dark"] .reborn-chat-window {
+  background: #1e293b;
+  box-shadow: inset 0 0 0 1px rgba(71, 85, 105, .5);
+}
+
+[data-theme="dark"] .reborn-chat-window .bg-white,
+[data-theme="dark"] .reborn-chat-window [class*="bg-white"] {
+  background: #1e293b !important;
+}
+
+[data-theme="dark"] .reborn-chat-window .bg-sky-50,
+[data-theme="dark"] .reborn-chat-window .rounded.bg-sky-50 {
+  background: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .reborn-chat-window .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+[data-theme="dark"] .reborn-chat-window .border-sky-100,
+[data-theme="dark"] .reborn-chat-window .border-t {
+  border-color: #475569 !important;
+}
+
+[data-theme="dark"] .reborn-chat-window .bg-gradient-to-b.from-sky-50 {
+  background: linear-gradient(to bottom, #1e293b, #0f172a) !important;
+}
+
+[data-theme="dark"] .typing-bubble {
+  background: linear-gradient(180deg, #1e3a5f, #1e293b);
+  border-color: #475569;
+}
+
+[data-theme="dark"] .typing-bubble-label {
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .reborn-mobile-nav {
+  background: rgba(15, 23, 42, .94);
+  border-top-color: rgba(71, 85, 105, .55);
+}
+
+[data-theme="dark"] .reborn-mobile-nav-item {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .reborn-mobile-nav-item--active {
+  color: #7dd3fc;
+  background: rgba(56, 189, 248, .15);
+}
+
+[data-theme="dark"] .reborn-help-list {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .login-scene {
+  background: transparent;
+}
+
+[data-theme="dark"] .login-theme-toggle {
+  background: rgba(30, 41, 59, .9);
+  border-color: rgba(71, 85, 105, .65);
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .login-nostalgia-card {
+  background: linear-gradient(160deg, rgba(30, 41, 59, .92), rgba(15, 23, 42, .88));
+  border-color: rgba(71, 85, 105, .55);
+}
+
+[data-theme="dark"] .login-nostalgia-tag {
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .login-nostalgia-title {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .login-nostalgia-text {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .login-quotes li {
+  background: rgba(30, 41, 59, .85);
+  border-color: rgba(71, 85, 105, .55);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .login-buddy {
+  background: rgba(30, 41, 59, .75);
+  border-color: rgba(71, 85, 105, .45);
+}
+
+[data-theme="dark"] .login-buddy-name {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .login-body {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+}
+
+[data-theme="dark"] .login-heading {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .login-subheading,
+[data-theme="dark"] .login-footnote {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .login-field span {
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .login-field input {
+  background: #0f172a;
+  border-color: #475569;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .login-toggle {
+  color: #7dd3fc;
+}
+
+[data-theme="dark"] .online-toast-body {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+}
+
+[data-theme="dark"] .online-toast-body:hover {
+  background: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+}
+
+[data-theme="dark"] .online-toast-text {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .online-toast-message {
+  color: #94a3b8;
+}
+
+@media (max-width: 640px) {
+  .reborn-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .reborn-btn-theme span[aria-hidden="true"],
+  .reborn-btn-spotify .reborn-btn-spotify-icon {
+    margin: 0;
+  }
 }
