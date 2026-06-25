@@ -73,7 +73,7 @@ function statusClass(status) {
           <div class="login-titlebar-left">
             <span class="login-window-icon" aria-hidden="true">🦋</span>
             <div>
-              <p class="login-titlebar-brand">MSN Reborn</p>
+              <p class="login-titlebar-brand">Reborn</p>
               <p class="login-titlebar-sub">Messenger</p>
             </div>
           </div>

@@ -1,10 +1,13 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import AppHeader from './components/AppHeader.vue'
+import AppSidebar from './components/AppSidebar.vue'
 import ContactList from './components/ContactList.vue'
 import ContactManager from './components/ContactManager.vue'
 import ChatWindow from './components/ChatWindow.vue'
 import ChatTaskbar from './components/ChatTaskbar.vue'
 import ProfilePanel from './components/ProfilePanel.vue'
+import EmptyChatState from './components/EmptyChatState.vue'
 import LoginScreen from './components/LoginScreen.vue'
 import OnlineNotifications from './components/OnlineNotifications.vue'
 import { getMe, login as loginRequest, register as registerRequest, logout as logoutRequest } from './services/auth'
@@ -24,6 +27,7 @@ const loading = ref(false)
 const error = ref('')
 const refreshSignal = ref(0)
 const onlineNotifications = ref([])
+const activeNav = ref('profile')
 
 const form = ref({
   email: '',
@@ -162,6 +166,10 @@ function selectContact(contact) {
 
   activeChatId.value = contact.id
   minimizedChatIds.value = minimizedChatIds.value.filter((id) => id !== contact.id)
+
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    activeNav.value = 'chats'
+  }
 }
 
 function minimizeChat(chatId) {
@@ -521,6 +529,18 @@ function toggleAuthMode() {
   error.value = ''
 }
 
+function navigateTo(section) {
+  activeNav.value = section
+}
+
+function handleStartConversation() {
+  activeNav.value = 'contacts'
+}
+
+function handleViewAllContacts() {
+  activeNav.value = 'contacts'
+}
+
 onMounted(async () => {
   try {
     await loadDashboard()
@@ -554,62 +574,183 @@ onBeforeUnmount(() => {
     @toggle-mode="toggleAuthMode"
   />
 
-  <main v-else class="app-shell" :class="{ 'has-chat-taskbar': minimizedChats.length }">
-    <div class="app-dashboard app-dashboard-mobile-stack">
-      <section class="msn-window app-sidebar rounded-xl border border-sky-700 bg-white/90">
-        <div class="msn-titlebar flex shrink-0 items-center justify-between px-3 py-2 text-white sm:px-4">
-          <div class="flex items-center gap-2">
-            <div class="h-4 w-4 rounded-full bg-lime-300 shadow-inner"></div>
-            <span class="font-bold text-sm sm:text-base">MSN Reborn</span>
-          </div>
-          <div class="flex gap-1 sm:gap-2">
-            <button class="rounded bg-white/20 px-2 py-1 text-[10px] sm:text-xs" @click="refreshSpotify">
-              Spotify
-            </button>
-            <button class="rounded bg-white/20 px-2 py-1 text-[10px] sm:text-xs" @click="logout">Sair</button>
-          </div>
-        </div>
+  <main v-else class="reborn-app" :class="{ 'has-chat-taskbar': minimizedChats.length }">
+    <AppHeader @spotify="refreshSpotify" @logout="logout" />
 
-        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+    <div class="reborn-body">
+      <AppSidebar :active="activeNav" @navigate="navigateTo" />
+
+      <div class="reborn-main">
+        <div v-if="error" class="reborn-alert reborn-alert--error reborn-main-alert">{{ error }}</div>
+
+        <!-- Perfil: grid do mockup -->
+        <div v-if="activeNav === 'profile'" class="reborn-grid reborn-grid--profile">
           <ProfilePanel :profile="profile" :music="music" @updated="handleProfileUpdated" />
-          <ContactList :contacts="contacts" :selected-id="selectedContact?.id" @select="selectContact" />
           <ContactManager
             :current-user-id="profile.user_id"
             :refresh-signal="refreshSignal"
             @changed="handleContactsChanged"
           />
-        </div>
-      </section>
-
-      <div class="app-chat min-h-0">
-        <div v-if="error" class="mb-2 rounded bg-red-50 p-2 text-sm text-red-700 sm:mb-3 sm:p-3">{{ error }}</div>
-
-        <div
-          v-if="!hasExpandedChat"
-          class="msn-window grid h-full min-h-[200px] place-items-center rounded-xl border border-dashed border-sky-400 bg-white/70 p-8 text-center text-slate-500"
-        >
-          <div>
-            <p class="text-base font-semibold text-sky-900">Nenhuma conversa aberta</p>
-            <p class="mt-1 text-sm">
-              Selecione um contato ou clique em uma conversa minimizada na barra inferior.
-            </p>
-          </div>
-        </div>
-
-        <KeepAlive>
-          <ChatWindow
-            v-for="chat in openChats"
-            v-show="isChatExpanded(chat.id)"
-            :key="chat.id"
-            :contact="getOpenChatContact(chat.id)"
-            :current-user="profile"
-            @minimize="minimizeChat(chat.id)"
-            @close="closeChat(chat.id)"
-            @contact-changed="handleContactsChanged"
+          <ContactList
+            :contacts="contacts"
+            :selected-id="selectedContact?.id"
+            compact
+            @select="selectContact"
+            @view-all="handleViewAllContacts"
           />
-        </KeepAlive>
+          <section class="reborn-card reborn-chat-panel">
+            <EmptyChatState v-if="!hasExpandedChat" @start="handleStartConversation" />
+            <KeepAlive v-else>
+              <ChatWindow
+                v-for="chat in openChats"
+                v-show="isChatExpanded(chat.id)"
+                :key="chat.id"
+                :contact="getOpenChatContact(chat.id)"
+                :current-user="profile"
+                @minimize="minimizeChat(chat.id)"
+                @close="closeChat(chat.id)"
+                @contact-changed="handleContactsChanged"
+              />
+            </KeepAlive>
+          </section>
+        </div>
+
+        <!-- Contatos: lista completa -->
+        <div v-else-if="activeNav === 'contacts'" class="reborn-grid reborn-grid--contacts">
+          <ContactList
+            :contacts="contacts"
+            :selected-id="selectedContact?.id"
+            :compact="false"
+            @select="selectContact"
+          />
+          <ContactManager
+            :current-user-id="profile.user_id"
+            :refresh-signal="refreshSignal"
+            @changed="handleContactsChanged"
+          />
+          <section class="reborn-card reborn-chat-panel reborn-chat-panel--wide">
+            <EmptyChatState v-if="!hasExpandedChat" @start="handleStartConversation" />
+            <KeepAlive v-else>
+              <ChatWindow
+                v-for="chat in openChats"
+                v-show="isChatExpanded(chat.id)"
+                :key="chat.id"
+                :contact="getOpenChatContact(chat.id)"
+                :current-user="profile"
+                @minimize="minimizeChat(chat.id)"
+                @close="closeChat(chat.id)"
+                @contact-changed="handleContactsChanged"
+              />
+            </KeepAlive>
+          </section>
+        </div>
+
+        <!-- Conversas -->
+        <div v-else-if="activeNav === 'chats'" class="reborn-grid reborn-grid--chats">
+          <article class="reborn-card reborn-chats-list">
+            <header class="reborn-card-header">
+              <h2 class="reborn-card-title">Conversas abertas</h2>
+            </header>
+            <button
+              v-for="chat in openChats"
+              :key="chat.id"
+              type="button"
+              class="reborn-chat-list-item"
+              :class="{ 'reborn-chat-list-item--active': isChatExpanded(chat.id) }"
+              @click="restoreChat(chat.id)"
+            >
+              <span class="reborn-chat-list-name">
+                {{ chat.nickname || chat.contact_profile?.display_name || 'Contato' }}
+              </span>
+              <span v-if="minimizedChatIds.includes(chat.id)" class="reborn-chat-list-badge">Minimizada</span>
+            </button>
+            <p v-if="!openChats.length" class="reborn-muted-text reborn-chats-empty">
+              Nenhuma conversa aberta. Selecione um contato para iniciar.
+            </p>
+          </article>
+          <section class="reborn-card reborn-chat-panel reborn-chat-panel--wide">
+            <EmptyChatState v-if="!hasExpandedChat" @start="handleStartConversation" />
+            <KeepAlive v-else>
+              <ChatWindow
+                v-for="chat in openChats"
+                v-show="isChatExpanded(chat.id)"
+                :key="chat.id"
+                :contact="getOpenChatContact(chat.id)"
+                :current-user="profile"
+                @minimize="minimizeChat(chat.id)"
+                @close="closeChat(chat.id)"
+                @contact-changed="handleContactsChanged"
+              />
+            </KeepAlive>
+          </section>
+        </div>
+
+        <!-- Configurações -->
+        <article v-else-if="activeNav === 'settings'" class="reborn-card reborn-placeholder-card">
+          <header class="reborn-card-header">
+            <h2 class="reborn-card-title">Configurações</h2>
+          </header>
+          <p class="reborn-muted-text">
+            Conecte sua conta Spotify pelo botão no topo, ajuste seu perfil na aba Perfil e gerencie contatos na aba Contatos.
+          </p>
+          <button type="button" class="reborn-btn-primary reborn-btn-inline" @click="refreshSpotify">
+            Sincronizar Spotify
+          </button>
+        </article>
+
+        <!-- Ajuda -->
+        <article v-else class="reborn-card reborn-placeholder-card">
+          <header class="reborn-card-header">
+            <h2 class="reborn-card-title">Ajuda</h2>
+          </header>
+          <ul class="reborn-help-list">
+            <li>Clique em um contato para abrir uma conversa.</li>
+            <li>Use <strong>_</strong> para minimizar e <strong>×</strong> para fechar a janela de chat.</li>
+            <li>Conversas minimizadas aparecem na barra inferior.</li>
+            <li>Status, foto e música dos contatos atualizam em tempo real.</li>
+          </ul>
+        </article>
       </div>
     </div>
+
+    <nav class="reborn-mobile-nav" aria-label="Navegação mobile">
+      <button
+        type="button"
+        class="reborn-mobile-nav-item"
+        :class="{ 'reborn-mobile-nav-item--active': activeNav === 'profile' }"
+        @click="navigateTo('profile')"
+      >
+        👤
+        <span>Perfil</span>
+      </button>
+      <button
+        type="button"
+        class="reborn-mobile-nav-item"
+        :class="{ 'reborn-mobile-nav-item--active': activeNav === 'contacts' }"
+        @click="navigateTo('contacts')"
+      >
+        👥
+        <span>Contatos</span>
+      </button>
+      <button
+        type="button"
+        class="reborn-mobile-nav-item"
+        :class="{ 'reborn-mobile-nav-item--active': activeNav === 'chats' }"
+        @click="navigateTo('chats')"
+      >
+        💬
+        <span>Conversas</span>
+      </button>
+      <button
+        type="button"
+        class="reborn-mobile-nav-item"
+        :class="{ 'reborn-mobile-nav-item--active': activeNav === 'settings' }"
+        @click="navigateTo('settings')"
+      >
+        ⚙️
+        <span>Config</span>
+      </button>
+    </nav>
 
     <ChatTaskbar
       :chats="minimizedChats"

@@ -332,8 +332,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="msn-window flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-sky-700 bg-white/95">
-    <div class="msn-titlebar shrink-0 px-4 py-3 text-white">
+  <section class="reborn-chat-window flex h-full min-h-0 flex-col overflow-hidden">
+    <div class="reborn-chat-titlebar shrink-0 px-4 py-3 text-white">
       <div class="flex items-center justify-between gap-2">
         <div class="min-w-0 flex-1">
           <div class="truncate font-bold">
@@ -421,10 +421,10 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <div class="shrink-0 flex gap-2 border-t bg-[#eaf7ff] p-3">
+      <div class="shrink-0 flex flex-wrap gap-2 border-t border-sky-100 bg-gradient-to-b from-sky-50 to-white p-3">
         <input
           v-model="newMessage"
-          class="flex-1 rounded border border-blue-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-300"
+          class="reborn-input min-w-0 flex-1"
           placeholder="Digite sua mensagem..."
           @input="handleTyping"
           @blur="stopTypingSignal"
@@ -432,14 +432,14 @@ onBeforeUnmount(() => {
         />
 
         <button
-          class="rounded bg-yellow-400 px-4 py-2 font-bold text-yellow-950 hover:bg-yellow-500"
+          class="reborn-btn-nudge"
           @click="sendNudge"
         >
           Chamar atenção
         </button>
 
         <button
-          class="rounded bg-blue-600 px-4 py-2 font-bold text-white hover:bg-blue-700"
+          class="reborn-btn-primary reborn-btn-send"
           @click="sendMessage"
         >
           Enviar

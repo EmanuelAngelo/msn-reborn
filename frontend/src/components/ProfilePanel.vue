@@ -6,6 +6,7 @@ import { resolveMediaUrl } from '../utils/media'
 const props = defineProps({
   profile: { type: Object, default: null },
   music: { type: Object, default: null },
+  compact: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['updated'])
@@ -18,9 +19,10 @@ const avatarPreview = ref('')
 const saving = ref(false)
 const success = ref('')
 const error = ref('')
+const editing = ref(false)
 
 const statusOptions = [
-  { value: 'online', label: 'Online' },
+  { value: 'online', label: 'Disponível' },
   { value: 'away', label: 'Ausente' },
   { value: 'busy', label: 'Ocupado' },
   { value: 'invisible', label: 'Invisível' },
@@ -33,7 +35,7 @@ const avatarSrc = computed(() => {
 })
 
 function initials(name) {
-  const value = name || props.profile?.email || 'MSN'
+  const value = name || props.profile?.email || 'R'
   return value
     .split(' ')
     .filter(Boolean)
@@ -42,34 +44,14 @@ function initials(name) {
     .join('') || '🙂'
 }
 
-function statusClass(value) {
-  return {
-    online: 'text-emerald-700',
-    away: 'text-yellow-700',
-    busy: 'text-red-700',
-    invisible: 'text-slate-500',
-    offline: 'text-slate-500',
-  }[value] || 'text-slate-500'
-}
-
 function statusDot(value) {
   return {
-    online: 'bg-lime-400',
-    away: 'bg-yellow-400',
-    busy: 'bg-red-500',
-    invisible: 'bg-slate-400',
-    offline: 'bg-slate-400',
-  }[value] || 'bg-slate-400'
-}
-
-function statusLabel(value) {
-  return {
-    online: 'online',
-    away: 'ausente',
-    busy: 'ocupado',
-    invisible: 'invisível',
-    offline: 'offline',
-  }[value] || 'offline'
+    online: 'status-online',
+    away: 'status-away',
+    busy: 'status-busy',
+    invisible: 'status-offline',
+    offline: 'status-offline',
+  }[value] || 'status-offline'
 }
 
 function syncLocalProfile() {
@@ -93,6 +75,7 @@ function handleAvatarChange(event) {
 
   if (file) {
     avatarPreview.value = URL.createObjectURL(file)
+    editing.value = true
   }
 }
 
@@ -103,7 +86,7 @@ async function saveProfile() {
 
   try {
     const formData = new FormData()
-    formData.append('display_name', displayName.value.trim() || props.profile?.username || 'Usuário MSN')
+    formData.append('display_name', displayName.value.trim() || props.profile?.username || 'Usuário')
     formData.append('personal_message', personalMessage.value.trim())
     formData.append('status', status.value)
 
@@ -116,6 +99,7 @@ async function saveProfile() {
     avatarFile.value = null
     avatarPreview.value = ''
     success.value = 'Perfil atualizado.'
+    editing.value = false
   } catch (err) {
     error.value = err.response?.data?.detail || 'Não foi possível atualizar o perfil.'
   } finally {
@@ -127,81 +111,89 @@ watch(() => props.profile, syncLocalProfile, { immediate: true })
 </script>
 
 <template>
-  <div class="border-b border-sky-200 bg-gradient-to-b from-sky-50 to-white p-4">
-    <div class="flex gap-3">
-      <div class="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-sky-500 bg-white shadow-inner">
+  <article class="reborn-card reborn-profile-card">
+    <header class="reborn-card-header">
+      <h2 class="reborn-card-title">Meu perfil</h2>
+      <button
+        type="button"
+        class="reborn-icon-btn"
+        title="Editar perfil"
+        @click="editing = !editing"
+      >
+        ✏️
+      </button>
+    </header>
+
+    <div class="reborn-profile-avatar-wrap">
+      <div class="reborn-profile-avatar">
         <img
           v-if="avatarSrc"
           :src="avatarSrc"
           alt="Foto do perfil"
-          class="h-full w-full object-cover"
+          class="reborn-profile-avatar-img"
         />
-        <div v-else class="grid h-full w-full place-items-center bg-sky-50 text-xl font-bold text-sky-700">
-          {{ initials(displayName) }}
-        </div>
+        <span v-else class="reborn-profile-avatar-fallback">{{ initials(displayName) }}</span>
+        <span class="reborn-profile-status-dot" :class="statusDot(status)"></span>
       </div>
 
-      <div class="min-w-0 flex-1">
-        <div class="truncate text-lg font-bold text-slate-800">
-          {{ profile?.display_name || 'Usuário MSN' }}
-        </div>
-        <div class="flex items-center gap-1 text-sm" :class="statusClass(profile?.status)">
-          <span class="inline-block h-2.5 w-2.5 rounded-full" :class="statusDot(profile?.status)"></span>
-          {{ statusLabel(profile?.status) }}
-        </div>
-        <div class="truncate text-sm text-slate-600">
-          {{ profile?.personal_message || 'Disponível para conversar' }}
-        </div>
-        <div v-if="music?.is_playing && music?.track_name" class="mt-1 truncate text-xs font-semibold text-sky-700">
-          ♫ {{ music.artist_name }} - {{ music.track_name }}
-        </div>
-        <div v-else class="mt-1 truncate text-xs text-slate-400">
-          Spotify sem música em reprodução
-        </div>
-      </div>
+      <label class="reborn-btn-photo">
+        <span aria-hidden="true">📷</span>
+        Alterar foto
+        <input type="file" accept="image/jpeg,image/png,image/gif" class="sr-only" @change="handleAvatarChange" />
+      </label>
+      <p class="reborn-photo-hint">JPG, PNG ou GIF. Máx. 5MB</p>
     </div>
 
-    <form class="mt-4 space-y-2 rounded-lg border border-sky-100 bg-white/80 p-3" @submit.prevent="saveProfile">
-      <div class="text-xs font-bold uppercase text-slate-500">Meu perfil</div>
-
-      <input
-        v-model="displayName"
-        class="w-full rounded border border-sky-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-200"
-        maxlength="80"
-        placeholder="Nome de exibição"
-      />
-
-      <input
-        v-model="personalMessage"
-        class="w-full rounded border border-sky-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-200"
-        maxlength="180"
-        placeholder="Mensagem pessoal / subnick"
-      />
-
-      <select
-        v-model="status"
-        class="w-full rounded border border-sky-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-200"
-      >
-        <option v-for="option in statusOptions" :key="option.value" :value="option.value">
-          {{ option.label }}
-        </option>
-      </select>
-
-      <label class="block cursor-pointer rounded border border-dashed border-sky-300 bg-sky-50 px-3 py-2 text-center text-xs font-semibold text-sky-800 hover:bg-sky-100">
-        Escolher foto de perfil
-        <input type="file" accept="image/*" class="hidden" @change="handleAvatarChange" />
+    <form class="reborn-profile-form" @submit.prevent="saveProfile">
+      <label class="reborn-field">
+        <span class="reborn-field-label">Nome</span>
+        <input
+          v-model="displayName"
+          class="reborn-input"
+          maxlength="80"
+          placeholder="Seu nome"
+          @focus="editing = true"
+        />
       </label>
 
-      <div v-if="error" class="rounded bg-red-50 p-2 text-xs text-red-700">{{ error }}</div>
-      <div v-if="success" class="rounded bg-emerald-50 p-2 text-xs text-emerald-700">{{ success }}</div>
+      <label class="reborn-field">
+        <span class="reborn-field-label">Apelido</span>
+        <input
+          v-model="personalMessage"
+          class="reborn-input"
+          maxlength="180"
+          placeholder="Mensagem pessoal"
+          @focus="editing = true"
+        />
+      </label>
 
-      <button
-        type="submit"
-        class="w-full rounded bg-sky-600 px-3 py-2 text-sm font-bold text-white shadow hover:bg-sky-700 disabled:opacity-60"
-        :disabled="saving"
-      >
+      <label class="reborn-field">
+        <span class="reborn-field-label">Status</span>
+        <div class="reborn-select-wrap">
+          <span class="reborn-select-dot" :class="statusDot(status)"></span>
+          <select v-model="status" class="reborn-select" @focus="editing = true">
+            <option v-for="option in statusOptions" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+      </label>
+
+      <div v-if="music?.is_playing && music?.track_name" class="reborn-music-pill">
+        <span class="reborn-music-icon" aria-hidden="true">♫</span>
+        <span class="reborn-music-text">{{ music.artist_name }} — {{ music.track_name }}</span>
+        <span class="reborn-music-eq" aria-hidden="true">
+          <span></span><span></span><span></span><span></span>
+        </span>
+      </div>
+
+      <div v-if="error" class="reborn-alert reborn-alert--error">{{ error }}</div>
+      <div v-if="success" class="reborn-alert reborn-alert--success">{{ success }}</div>
+
+      <button type="submit" class="reborn-btn-primary" :disabled="saving">
+        <span aria-hidden="true">💾</span>
         {{ saving ? 'Salvando...' : 'Salvar perfil' }}
       </button>
     </form>
-  </div>
+  </article>
 </template>
