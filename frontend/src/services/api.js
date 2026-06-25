@@ -13,7 +13,7 @@ export function clearAuthToken() {
 }
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
+  baseURL: 'https://emanuelangelo1992.pythonanywhere.com/api',
   withCredentials: false,
 })
 
