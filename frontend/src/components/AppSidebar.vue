@@ -1,21 +1,26 @@
 <script setup>
+import { computed } from 'vue'
+import { useLocale } from '../composables/useLocale'
+
 defineProps({
   active: { type: String, default: 'profile' },
 })
 
 defineEmits(['navigate'])
 
-const items = [
-  { id: 'profile', label: 'Perfil', icon: '👤' },
-  { id: 'contacts', label: 'Contatos', icon: '👥' },
-  { id: 'chats', label: 'Conversas', icon: '💬' },
-  { id: 'settings', label: 'Configurações', icon: '⚙️' },
-  { id: 'help', label: 'Ajuda', icon: '❓' },
-]
+const { t } = useLocale()
+
+const items = computed(() => [
+  { id: 'profile', label: t('nav.profile'), icon: '👤' },
+  { id: 'contacts', label: t('nav.contacts'), icon: '👥' },
+  { id: 'chats', label: t('nav.chats'), icon: '💬' },
+  { id: 'settings', label: t('nav.settings'), icon: '⚙️' },
+  { id: 'help', label: t('nav.help'), icon: '❓' },
+])
 </script>
 
 <template>
-  <nav class="reborn-sidebar" aria-label="Navegação principal">
+  <nav class="reborn-sidebar" :aria-label="t('nav.main')">
     <button
       v-for="item in items"
       :key="item.id"

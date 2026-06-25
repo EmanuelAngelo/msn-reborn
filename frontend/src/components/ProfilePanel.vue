@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { updateMe } from '../services/auth'
 import { resolveMediaUrl } from '../utils/media'
+import { useLocale } from '../composables/useLocale'
 
 const props = defineProps({
   profile: { type: Object, default: null },
@@ -10,6 +11,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['updated'])
+
+const { t } = useLocale()
 
 const displayName = ref('')
 const personalMessage = ref('')
@@ -21,13 +24,13 @@ const success = ref('')
 const error = ref('')
 const editing = ref(false)
 
-const statusOptions = [
-  { value: 'online', label: 'Disponível' },
-  { value: 'away', label: 'Ausente' },
-  { value: 'busy', label: 'Ocupado' },
-  { value: 'invisible', label: 'Invisível' },
-  { value: 'offline', label: 'Offline' },
-]
+const statusOptions = computed(() => [
+  { value: 'online', label: t('profile.statusOnline') },
+  { value: 'away', label: t('profile.statusAway') },
+  { value: 'busy', label: t('profile.statusBusy') },
+  { value: 'invisible', label: t('profile.statusInvisible') },
+  { value: 'offline', label: t('profile.statusOffline') },
+])
 
 const avatarSrc = computed(() => {
   if (avatarPreview.value) return avatarPreview.value
@@ -98,10 +101,10 @@ async function saveProfile() {
     emit('updated', updated)
     avatarFile.value = null
     avatarPreview.value = ''
-    success.value = 'Perfil atualizado.'
+    success.value = t('profile.updated')
     editing.value = false
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Não foi possível atualizar o perfil.'
+    error.value = err.response?.data?.detail || t('profile.updateError')
   } finally {
     saving.value = false
   }
@@ -113,11 +116,11 @@ watch(() => props.profile, syncLocalProfile, { immediate: true })
 <template>
   <article class="reborn-card reborn-profile-card">
     <header class="reborn-card-header">
-      <h2 class="reborn-card-title">Meu perfil</h2>
+      <h2 class="reborn-card-title">{{ t('profile.title') }}</h2>
       <button
         type="button"
         class="reborn-icon-btn"
-        title="Editar perfil"
+        :title="t('profile.edit')"
         @click="editing = !editing"
       >
         ✏️
@@ -138,37 +141,37 @@ watch(() => props.profile, syncLocalProfile, { immediate: true })
 
       <label class="reborn-btn-photo">
         <span aria-hidden="true">📷</span>
-        Alterar foto
+        {{ t('profile.changePhoto') }}
         <input type="file" accept="image/jpeg,image/png,image/gif" class="sr-only" @change="handleAvatarChange" />
       </label>
-      <p class="reborn-photo-hint">JPG, PNG ou GIF. Máx. 5MB</p>
+      <p class="reborn-photo-hint">{{ t('profile.photoHint') }}</p>
     </div>
 
     <form class="reborn-profile-form" @submit.prevent="saveProfile">
       <label class="reborn-field">
-        <span class="reborn-field-label">Nome</span>
+        <span class="reborn-field-label">{{ t('profile.name') }}</span>
         <input
           v-model="displayName"
           class="reborn-input"
           maxlength="80"
-          placeholder="Seu nome"
+          :placeholder="t('profile.namePlaceholder')"
           @focus="editing = true"
         />
       </label>
 
       <label class="reborn-field">
-        <span class="reborn-field-label">Apelido</span>
+        <span class="reborn-field-label">{{ t('profile.nickname') }}</span>
         <input
           v-model="personalMessage"
           class="reborn-input"
           maxlength="180"
-          placeholder="Mensagem pessoal"
+          :placeholder="t('profile.nicknamePlaceholder')"
           @focus="editing = true"
         />
       </label>
 
       <label class="reborn-field">
-        <span class="reborn-field-label">Status</span>
+        <span class="reborn-field-label">{{ t('profile.status') }}</span>
         <div class="reborn-select-wrap">
           <span class="reborn-select-dot" :class="statusDot(status)"></span>
           <select v-model="status" class="reborn-select" @focus="editing = true">
@@ -192,7 +195,7 @@ watch(() => props.profile, syncLocalProfile, { immediate: true })
 
       <button type="submit" class="reborn-btn-primary" :disabled="saving">
         <span aria-hidden="true">💾</span>
-        {{ saving ? 'Salvando...' : 'Salvar perfil' }}
+        {{ saving ? t('profile.saving') : t('profile.save') }}
       </button>
     </form>
   </article>

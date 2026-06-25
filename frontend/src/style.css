@@ -87,11 +87,19 @@ body {
   overflow: hidden;
 }
 
-.login-theme-toggle {
+.login-top-actions {
   position: absolute;
   top: 1rem;
   right: 1rem;
   z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.login-theme-toggle,
+.login-locale-toggle {
+  position: static;
   display: inline-flex;
   align-items: center;
   gap: .35rem;
@@ -107,7 +115,8 @@ body {
   backdrop-filter: blur(6px);
 }
 
-.login-theme-toggle:hover {
+.login-theme-toggle:hover,
+.login-locale-toggle:hover {
   background: #fff;
 }
 
@@ -564,6 +573,25 @@ body {
 
 .reborn-btn-theme:hover {
   background: rgba(255,255,255,.22);
+}
+
+.reborn-btn-locale {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .45rem .85rem;
+  border: 1px solid rgba(255,255,255,.55);
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s;
+}
+
+.reborn-btn-locale:hover {
+  background: rgba(255,255,255,.18);
 }
 
 .reborn-btn-logout {
@@ -2121,7 +2149,8 @@ body {
   background: transparent;
 }
 
-[data-theme="dark"] .login-theme-toggle {
+[data-theme="dark"] .login-theme-toggle,
+[data-theme="dark"] .login-locale-toggle {
   background: rgba(30, 41, 59, .9);
   border-color: rgba(71, 85, 105, .65);
   color: #7dd3fc;

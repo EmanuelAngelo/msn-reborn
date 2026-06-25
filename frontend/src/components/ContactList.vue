@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { resolveMediaUrl } from '../utils/media'
+import { useLocale } from '../composables/useLocale'
 
 const props = defineProps({
   contacts: { type: Array, default: () => [] },
@@ -11,14 +12,16 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'view-all'])
 
+const { t } = useLocale()
+
 const filter = ref('all')
 
-const filters = [
-  { id: 'all', label: 'Todos' },
-  { id: 'online', label: 'Online' },
-  { id: 'away', label: 'Ausentes' },
-  { id: 'offline', label: 'Offline' },
-]
+const filters = computed(() => [
+  { id: 'all', label: t('contacts.all') },
+  { id: 'online', label: t('contacts.online') },
+  { id: 'away', label: t('contacts.away') },
+  { id: 'offline', label: t('contacts.offline') },
+])
 
 const filteredContacts = computed(() => {
   if (filter.value === 'all') return props.contacts
@@ -56,7 +59,7 @@ function initials(profile) {
 }
 
 function contactName(item) {
-  return item.nickname || item.contact_profile?.display_name || item.contact_profile?.email || 'Contato'
+  return item.nickname || item.contact_profile?.display_name || item.contact_profile?.email || t('contacts.contact')
 }
 </script>
 
@@ -65,7 +68,7 @@ function contactName(item) {
     <header v-if="showHeader" class="reborn-card-header">
       <h2 class="reborn-card-title">
         <span aria-hidden="true">👥</span>
-        Contatos
+        {{ t('contacts.title') }}
       </h2>
     </header>
 
@@ -108,12 +111,12 @@ function contactName(item) {
         </span>
         <span class="reborn-contact-chip-name">{{ contactName(item) }}</span>
         <span class="reborn-contact-chip-msg">
-          {{ item.contact_profile?.personal_message || 'Sem mensagem' }}
+          {{ item.contact_profile?.personal_message || t('contacts.noMessage') }}
         </span>
       </button>
 
       <div v-if="!filteredContacts.length" class="reborn-contacts-empty">
-        Nenhum contato neste filtro.
+        {{ t('contacts.noFilter') }}
       </div>
     </div>
 
@@ -142,7 +145,7 @@ function contactName(item) {
             {{ contactName(item) }}
           </span>
           <span class="reborn-contact-row-msg">
-            {{ item.contact_profile?.personal_message || 'Sem mensagem pessoal' }}
+            {{ item.contact_profile?.personal_message || t('contacts.noPersonalMessage') }}
           </span>
           <span
             v-if="item.music_status?.is_playing && item.music_status?.track_name"
@@ -154,7 +157,7 @@ function contactName(item) {
       </button>
 
       <div v-if="!filteredContacts.length" class="reborn-contacts-empty">
-        Nenhum contato ainda. Use a busca para adicionar amigos.
+        {{ t('contacts.empty') }}
       </div>
     </div>
 
@@ -164,7 +167,7 @@ function contactName(item) {
       class="reborn-link-btn"
       @click="emit('view-all')"
     >
-      Ver todos os contatos
+      {{ t('contacts.viewAll') }}
       <span aria-hidden="true">⌄</span>
     </button>
   </article>

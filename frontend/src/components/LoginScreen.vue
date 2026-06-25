@@ -1,4 +1,7 @@
 <script setup>
+import { computed } from 'vue'
+import { useLocale } from '../composables/useLocale'
+
 defineProps({
   mode: { type: String, default: 'login' },
   form: { type: Object, required: true },
@@ -7,15 +10,22 @@ defineProps({
   theme: { type: String, default: 'light' },
 })
 
-defineEmits(['submit', 'toggle-mode', 'toggle-theme'])
+defineEmits(['submit', 'toggle-mode', 'toggle-theme', 'toggle-locale'])
 
-const nostalgicQuotes = [
-  'Oi, tudo bem?',
-  'BRB...',
-  'Toque aqui! 👋',
-  '♫ O que você está ouvindo?',
-  'Sentiu saudades?',
-]
+const { t, locale } = useLocale()
+
+const localeLabel = computed(() => (locale.value === 'pt' ? t('header.en') : t('header.pt')))
+const localeTitle = computed(() =>
+  locale.value === 'pt' ? t('header.localeEn') : t('header.localePt'),
+)
+
+const nostalgicQuotes = computed(() => [
+  t('login.quote1'),
+  t('login.quote2'),
+  t('login.quote3'),
+  t('login.quote4'),
+  t('login.quote5'),
+])
 
 const decorativeContacts = [
   { name: 'Ana', status: 'online', emoji: '🦋' },
@@ -36,15 +46,26 @@ function statusClass(status) {
 
 <template>
   <div class="login-scene">
-    <button
-      type="button"
-      class="login-theme-toggle"
-      :title="theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'"
-      @click="$emit('toggle-theme')"
-    >
-      <span aria-hidden="true">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
-      {{ theme === 'dark' ? 'Claro' : 'Escuro' }}
-    </button>
+    <div class="login-top-actions">
+      <button
+        type="button"
+        class="login-theme-toggle"
+        :title="theme === 'dark' ? t('header.themeLight') : t('header.themeDark')"
+        @click="$emit('toggle-theme')"
+      >
+        <span aria-hidden="true">{{ theme === 'dark' ? '☀️' : '🌙' }}</span>
+        {{ theme === 'dark' ? t('header.light') : t('header.dark') }}
+      </button>
+      <button
+        type="button"
+        class="login-locale-toggle"
+        :title="localeTitle"
+        @click="$emit('toggle-locale')"
+      >
+        <span aria-hidden="true">🌐</span>
+        {{ localeLabel }}
+      </button>
+    </div>
 
     <div class="login-cloud login-cloud-1" aria-hidden="true"></div>
     <div class="login-cloud login-cloud-2" aria-hidden="true"></div>
@@ -53,10 +74,10 @@ function statusClass(status) {
     <div class="login-layout">
       <aside class="login-nostalgia hidden lg:flex">
         <div class="login-nostalgia-card">
-          <p class="login-nostalgia-tag">Lembra quando...</p>
-          <h2 class="login-nostalgia-title">Windows Live Messenger</h2>
+          <p class="login-nostalgia-tag">{{ t('login.remember') }}</p>
+          <h2 class="login-nostalgia-title">{{ t('login.wlm') }}</h2>
           <p class="login-nostalgia-text">
-            Nudges que tremiam a tela, emoticons animados, música no status e aquela lista de contatos que parecia nunca dormir.
+            {{ t('login.nostalgia') }}
           </p>
 
           <ul class="login-quotes">
@@ -93,12 +114,10 @@ function statusClass(status) {
           <div class="login-hero">
             <img src="/reborn-logo.png" alt="Reborn Messenger" class="login-hero-logo" />
             <h1 class="login-heading">
-              {{ mode === 'login' ? 'Conecte-se ao Messenger' : 'Criar nova conta' }}
+              {{ mode === 'login' ? t('login.titleLogin') : t('login.titleRegister') }}
             </h1>
             <p class="login-subheading">
-              {{ mode === 'login'
-                ? 'Entre e volte a conversar como nos bons tempos.'
-                : 'Escolha seu apelido e comece a adicionar amigos.' }}
+              {{ mode === 'login' ? t('login.subLogin') : t('login.subRegister') }}
             </p>
           </div>
 
@@ -106,39 +125,39 @@ function statusClass(status) {
 
           <form class="login-form" @submit.prevent="$emit('submit')">
             <label class="login-field">
-              <span>E-mail</span>
+              <span>{{ t('login.email') }}</span>
               <input
                 v-model="form.email"
                 type="email"
                 autocomplete="email"
-                placeholder="seu@email.com"
+                :placeholder="t('login.emailPlaceholder')"
                 required
               />
             </label>
 
             <label v-if="mode === 'register'" class="login-field">
-              <span>Usuário</span>
+              <span>{{ t('login.username') }}</span>
               <input
                 v-model="form.username"
                 type="text"
                 autocomplete="username"
-                placeholder="seu_apelido"
+                :placeholder="t('login.usernamePlaceholder')"
                 required
               />
             </label>
 
             <label v-if="mode === 'register'" class="login-field">
-              <span>Nome de exibição</span>
+              <span>{{ t('login.displayName') }}</span>
               <input
                 v-model="form.display_name"
                 type="text"
                 autocomplete="nickname"
-                placeholder="Como seus amigos vão te ver"
+                :placeholder="t('login.displayNamePlaceholder')"
               />
             </label>
 
             <label class="login-field">
-              <span>Senha</span>
+              <span>{{ t('login.password') }}</span>
               <input
                 v-model="form.password"
                 type="password"
@@ -150,15 +169,21 @@ function statusClass(status) {
             </label>
 
             <button type="submit" class="login-submit" :disabled="loading">
-              {{ loading ? 'Conectando...' : mode === 'login' ? 'Entrar' : 'Criar conta' }}
+              {{
+                loading
+                  ? t('login.connecting')
+                  : mode === 'login'
+                    ? t('login.enter')
+                    : t('login.createAccount')
+              }}
             </button>
           </form>
 
           <div class="login-footer">
             <button type="button" class="login-toggle" @click="$emit('toggle-mode')">
-              {{ mode === 'login' ? 'Ainda não tem conta? Cadastre-se' : 'Já tenho conta — entrar' }}
+              {{ mode === 'login' ? t('login.noAccount') : t('login.hasAccount') }}
             </button>
-            <p class="login-footnote">Status • Nudge • Música no perfil • Chat em tempo real</p>
+            <p class="login-footnote">{{ t('login.footnote') }}</p>
           </div>
         </div>
       </section>

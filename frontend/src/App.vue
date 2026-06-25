@@ -11,6 +11,7 @@ import EmptyChatState from './components/EmptyChatState.vue'
 import LoginScreen from './components/LoginScreen.vue'
 import OnlineNotifications from './components/OnlineNotifications.vue'
 import { useTheme } from './composables/useTheme'
+import { useLocale } from './composables/useLocale'
 import { getMe, login as loginRequest, register as registerRequest, logout as logoutRequest } from './services/auth'
 import { getMusicStatus, listContacts, listConversations, spotifyConnectUrl, syncSpotify } from './services/msn'
 import { areWebSocketsEnabled } from './services/api'
@@ -32,6 +33,7 @@ const activeNav = ref('profile')
 const contactTypingByUserId = ref({})
 
 const { theme, toggleTheme } = useTheme()
+const { t, toggleLocale } = useLocale()
 
 const form = ref({
   email: '',
@@ -612,7 +614,7 @@ async function login() {
     profile.value = await loginRequest(form.value.email, form.value.password)
     await loadDashboard()
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Falha no login. Verifique credenciais.'
+    error.value = err.response?.data?.detail || t('auth.loginError')
   } finally {
     loading.value = false
   }
@@ -626,7 +628,7 @@ async function register() {
     profile.value = await registerRequest(form.value)
     await loadDashboard()
   } catch {
-    error.value = 'Não foi possível criar a conta. Verifique os campos.'
+    error.value = t('auth.registerError')
   } finally {
     loading.value = false
   }
@@ -647,7 +649,7 @@ async function refreshSpotify() {
       window.location.href = spotifyConnectUrl()
       return
     }
-    error.value = detail || 'Não foi possível sincronizar com Spotify.'
+    error.value = detail || t('auth.spotifyError')
   }
 }
 
@@ -761,6 +763,7 @@ onBeforeUnmount(() => {
     @submit="handleAuthSubmit"
     @toggle-mode="toggleAuthMode"
     @toggle-theme="toggleTheme"
+    @toggle-locale="toggleLocale"
   />
 
   <main v-else class="reborn-app" :class="{ 'has-chat-taskbar': minimizedChats.length }">
@@ -769,6 +772,7 @@ onBeforeUnmount(() => {
       @spotify="refreshSpotify"
       @logout="logout"
       @toggle-theme="toggleTheme"
+      @toggle-locale="toggleLocale"
     />
 
     <div class="reborn-body">
@@ -845,7 +849,7 @@ onBeforeUnmount(() => {
         <div v-else-if="activeNav === 'chats'" class="reborn-grid reborn-grid--chats">
           <article class="reborn-card reborn-chats-list">
             <header class="reborn-card-header">
-              <h2 class="reborn-card-title">Conversas abertas</h2>
+              <h2 class="reborn-card-title">{{ t('chat.openTitle') }}</h2>
             </header>
             <button
               v-for="chat in openChats"
@@ -856,12 +860,12 @@ onBeforeUnmount(() => {
               @click="restoreChat(chat.id)"
             >
               <span class="reborn-chat-list-name">
-                {{ chat.nickname || chat.contact_profile?.display_name || 'Contato' }}
+                {{ chat.nickname || chat.contact_profile?.display_name || t('contacts.contact') }}
               </span>
-              <span v-if="minimizedChatIds.includes(chat.id)" class="reborn-chat-list-badge">Minimizada</span>
+              <span v-if="minimizedChatIds.includes(chat.id)" class="reborn-chat-list-badge">{{ t('chat.minimized') }}</span>
             </button>
             <p v-if="!openChats.length" class="reborn-muted-text reborn-chats-empty">
-              Nenhuma conversa aberta. Selecione um contato para iniciar.
+              {{ t('chat.noOpen') }}
             </p>
           </article>
           <section class="reborn-card reborn-chat-panel reborn-chat-panel--wide">
@@ -885,32 +889,32 @@ onBeforeUnmount(() => {
         <!-- Configurações -->
         <article v-else-if="activeNav === 'settings'" class="reborn-card reborn-placeholder-card">
           <header class="reborn-card-header">
-            <h2 class="reborn-card-title">Configurações</h2>
+            <h2 class="reborn-card-title">{{ t('settings.title') }}</h2>
           </header>
           <p class="reborn-muted-text">
-            Conecte sua conta Spotify pelo botão no topo, ajuste seu perfil na aba Perfil e gerencie contatos na aba Contatos.
+            {{ t('settings.text') }}
           </p>
           <button type="button" class="reborn-btn-primary reborn-btn-inline" @click="refreshSpotify">
-            Sincronizar Spotify
+            {{ t('settings.syncSpotify') }}
           </button>
         </article>
 
         <!-- Ajuda -->
         <article v-else class="reborn-card reborn-placeholder-card">
           <header class="reborn-card-header">
-            <h2 class="reborn-card-title">Ajuda</h2>
+            <h2 class="reborn-card-title">{{ t('help.title') }}</h2>
           </header>
           <ul class="reborn-help-list">
-            <li>Clique em um contato para abrir uma conversa.</li>
-            <li>Use <strong>_</strong> para minimizar e <strong>×</strong> para fechar a janela de chat.</li>
-            <li>Conversas minimizadas aparecem na barra inferior.</li>
-            <li>Status, foto e música dos contatos atualizam em tempo real.</li>
+            <li>{{ t('help.item1') }}</li>
+            <li>{{ t('help.item2') }}</li>
+            <li>{{ t('help.item3') }}</li>
+            <li>{{ t('help.item4') }}</li>
           </ul>
         </article>
       </div>
     </div>
 
-    <nav class="reborn-mobile-nav" aria-label="Navegação mobile">
+    <nav class="reborn-mobile-nav" :aria-label="t('nav.mobile')">
       <button
         type="button"
         class="reborn-mobile-nav-item"
@@ -918,7 +922,7 @@ onBeforeUnmount(() => {
         @click="navigateTo('profile')"
       >
         👤
-        <span>Perfil</span>
+        <span>{{ t('nav.profile') }}</span>
       </button>
       <button
         type="button"
@@ -927,7 +931,7 @@ onBeforeUnmount(() => {
         @click="navigateTo('contacts')"
       >
         👥
-        <span>Contatos</span>
+        <span>{{ t('nav.contacts') }}</span>
       </button>
       <button
         type="button"
@@ -936,7 +940,7 @@ onBeforeUnmount(() => {
         @click="navigateTo('chats')"
       >
         💬
-        <span>Conversas</span>
+        <span>{{ t('nav.chats') }}</span>
       </button>
       <button
         type="button"
@@ -945,7 +949,7 @@ onBeforeUnmount(() => {
         @click="navigateTo('settings')"
       >
         ⚙️
-        <span>Config</span>
+        <span>{{ t('nav.configShort') }}</span>
       </button>
     </nav>
 

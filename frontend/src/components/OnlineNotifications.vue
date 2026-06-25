@@ -1,5 +1,6 @@
 <script setup>
 import { resolveMediaUrl } from '../utils/media'
+import { useLocale } from '../composables/useLocale'
 
 defineProps({
   notifications: {
@@ -10,8 +11,10 @@ defineProps({
 
 defineEmits(['dismiss', 'open'])
 
+const { t } = useLocale()
+
 function initials(name) {
-  const value = name || 'MSN'
+  const value = name || 'R'
   return value
     .split(' ')
     .filter(Boolean)
@@ -21,9 +24,9 @@ function initials(name) {
 }
 
 function subtitle(item) {
-  if (item.kind === 'message') return 'enviou uma mensagem'
-  if (item.kind === 'nudge') return 'chamou sua atenção!'
-  return 'acabou de ficar online'
+  if (item.kind === 'message') return t('notifications.sentMessage')
+  if (item.kind === 'nudge') return t('notifications.nudge')
+  return t('notifications.cameOnline')
 }
 </script>
 
@@ -37,11 +40,11 @@ function subtitle(item) {
         role="status"
       >
         <header class="msn-titlebar online-toast-titlebar">
-          <span class="online-toast-title">Reborn</span>
+          <span class="online-toast-title">{{ t('notifications.brand') }}</span>
           <button
             type="button"
             class="online-toast-close"
-            aria-label="Fechar"
+            :aria-label="t('notifications.close')"
             @click="$emit('dismiss', item.id)"
           >
             ×

@@ -11,6 +11,7 @@ import {
   blockContact,
   toggleFavoriteContact,
 } from '../services/msn'
+import { useLocale } from '../composables/useLocale'
 
 const props = defineProps({
   contact: {
@@ -29,16 +30,18 @@ const props = defineProps({
 
 const emit = defineEmits(['contact-changed', 'minimize', 'close'])
 
+const { t } = useLocale()
+
 const contactProfile = computed(() => props.contact?.contact_profile || null)
 const contactMusic = computed(() => props.contact?.music_status || null)
 
 function statusLabel(status) {
   return {
-    online: 'Online',
-    away: 'Ausente',
-    busy: 'Ocupado',
-    invisible: 'Invisível',
-    offline: 'Offline',
+    online: t('chat.statusOnline'),
+    away: t('chat.statusAway'),
+    busy: t('chat.statusBusy'),
+    invisible: t('chat.statusInvisible'),
+    offline: t('chat.statusOffline'),
   }[status] || status
 }
 
@@ -66,7 +69,7 @@ const knownMessageIds = new Set()
 function contactDisplayName() {
   return props.contact?.contact_profile?.display_name
     || props.contact?.contact_profile?.email
-    || 'Contato'
+    || t('contacts.contact')
 }
 
 function clearInternalTypingIndicator() {
@@ -120,7 +123,7 @@ function getContactUserId() {
 }
 
 function messageAuthor(message) {
-  return message.sender_name || message.sender?.username || message.sender_obj?.username || 'Usuário'
+  return message.sender_name || message.sender?.username || message.sender_obj?.username || t('chat.user')
 }
 
 function sortMessages() {
@@ -275,7 +278,7 @@ async function openConversation() {
     await loadHistory()
     connectSocket()
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Não foi possível abrir a conversa.'
+    error.value = err.response?.data?.detail || t('chat.openError')
   } finally {
     connecting.value = false
   }
@@ -299,7 +302,7 @@ async function sendMessage() {
     await scrollToBottom()
     startMessagePolling()
   } catch {
-    error.value = 'Não foi possível enviar a mensagem.'
+    error.value = t('chat.sendError')
   }
 }
 
@@ -319,19 +322,19 @@ async function sendNudge() {
     await scrollToBottom()
     startMessagePolling()
   } catch {
-    error.value = 'Não foi possível chamar atenção.'
+    error.value = t('chat.nudgeError')
   }
 }
 
 async function handleBlockContact() {
   if (!props.contact?.id) return
-  if (!window.confirm('Bloquear este contato? Ele será removido da sua lista.')) return
+  if (!window.confirm(t('chat.blockConfirm'))) return
 
   try {
     await blockContact(props.contact.id)
     emit('contact-changed')
   } catch {
-    error.value = 'Não foi possível bloquear o contato.'
+    error.value = t('chat.blockError')
   }
 }
 
@@ -342,7 +345,7 @@ async function handleToggleFavorite() {
     const updated = await toggleFavoriteContact(props.contact.id)
     emit('contact-changed', updated)
   } catch {
-    error.value = 'Não foi possível atualizar favorito.'
+    error.value = t('chat.favoriteError')
   }
 }
 
@@ -416,14 +419,14 @@ onBeforeUnmount(() => {
       <div class="flex items-center justify-between gap-2">
         <div class="min-w-0 flex-1">
           <div class="truncate font-bold">
-            {{ contactProfile?.display_name || contactProfile?.email || 'Selecione um contato' }}
+            {{ contactProfile?.display_name || contactProfile?.email || t('chat.selectContact') }}
           </div>
           <div v-if="contactProfile" class="text-xs text-white/90">
             <span v-if="isContactTyping" class="typing-titlebar">
-              {{ typingDisplayName }} está digitando
+              {{ t('chat.typing', { name: typingDisplayName }) }}
               <span class="typing-dots typing-dots-light"><span></span><span></span><span></span></span>
             </span>
-            <span v-else>Status: {{ statusLabel(contactProfile.status) }}</span>
+            <span v-else>{{ t('chat.status', { status: statusLabel(contactProfile.status) }) }}</span>
           </div>
           <div
             v-if="contactProfile?.personal_message && !isContactTyping"
@@ -441,28 +444,28 @@ onBeforeUnmount(() => {
         <div v-if="contact" class="flex shrink-0 items-center gap-1">
           <button
             class="rounded bg-white/20 px-2 py-1 text-xs hover:bg-white/30"
-            :title="contact.is_favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'"
+            :title="contact.is_favorite ? t('chat.removeFavorite') : t('chat.addFavorite')"
             @click="handleToggleFavorite"
           >
             {{ contact.is_favorite ? '★' : '☆' }}
           </button>
           <button
             class="rounded bg-white/20 px-2 py-1 text-[10px] hover:bg-white/30 sm:text-xs"
-            title="Bloquear contato"
+            :title="t('chat.block')"
             @click="handleBlockContact"
           >
-            Bloquear
+            {{ t('chat.block') }}
           </button>
           <button
             class="msn-window-btn"
-            title="Minimizar conversa"
+            :title="t('chat.minimize')"
             @click="$emit('minimize')"
           >
             _
           </button>
           <button
             class="msn-window-btn"
-            title="Fechar conversa"
+            :title="t('chat.close')"
             @click="$emit('close')"
           >
             ×
@@ -472,12 +475,12 @@ onBeforeUnmount(() => {
     </div>
 
     <div v-if="!contact" class="grid flex-1 place-items-center p-8 text-center text-slate-500">
-      Selecione um contato para iniciar uma conversa.
+      {{ t('chat.selectContact') }}
     </div>
 
     <template v-else>
       <div v-if="error" class="m-3 rounded bg-red-50 p-3 text-sm text-red-700">{{ error }}</div>
-      <div v-if="connecting" class="p-4 text-sm text-slate-500">Abrindo conversa...</div>
+      <div v-if="connecting" class="p-4 text-sm text-slate-500">{{ t('chat.opening') }}</div>
 
       <div ref="messageBox" class="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white p-4">
         <div v-for="message in messages" :key="message.id" class="mb-2">
@@ -485,17 +488,17 @@ onBeforeUnmount(() => {
             v-if="message.type === 'nudge'"
             class="rounded border border-yellow-300 bg-yellow-100 px-3 py-2 text-center text-sm font-bold text-yellow-800"
           >
-            {{ messageAuthor(message) }} chamou atenção!
+            {{ t('chat.nudgeMsg', { name: messageAuthor(message) }) }}
           </div>
 
           <div v-else class="rounded bg-sky-50 px-3 py-2 text-sm text-slate-800">
-            <strong>{{ messageAuthor(message) }} diz:</strong>
+            <strong>{{ t('chat.says', { name: messageAuthor(message) }) }}</strong>
             <span class="ml-1">{{ message.content }}</span>
           </div>
         </div>
 
         <div v-if="isContactTyping" class="typing-bubble">
-          <span class="typing-bubble-label">{{ typingDisplayName }} está digitando</span>
+          <span class="typing-bubble-label">{{ t('chat.typing', { name: typingDisplayName }) }}</span>
           <span class="typing-dots"><span></span><span></span><span></span></span>
         </div>
       </div>
@@ -504,7 +507,7 @@ onBeforeUnmount(() => {
         <input
           v-model="newMessage"
           class="reborn-input min-w-0 flex-1"
-          placeholder="Digite sua mensagem..."
+          :placeholder="t('chat.placeholder')"
           @input="handleTyping"
           @blur="stopTypingSignal"
           @keyup.enter="sendMessage"
@@ -514,14 +517,14 @@ onBeforeUnmount(() => {
           class="reborn-btn-nudge"
           @click="sendNudge"
         >
-          Chamar atenção
+          {{ t('chat.nudge') }}
         </button>
 
         <button
           class="reborn-btn-primary reborn-btn-send"
           @click="sendMessage"
         >
-          Enviar
+          {{ t('chat.send') }}
         </button>
       </div>
     </template>

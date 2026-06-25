@@ -7,6 +7,7 @@ import {
   rejectContactRequest,
   searchUsers,
 } from '../services/msn'
+import { useLocale } from '../composables/useLocale'
 
 const props = defineProps({
   currentUserId: { type: String, default: '' },
@@ -15,6 +16,8 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['changed'])
+
+const { t } = useLocale()
 
 const q = ref('')
 const results = ref([])
@@ -36,7 +39,7 @@ async function loadRequests() {
   try {
     requests.value = await listContactRequests()
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Erro ao carregar solicitações.'
+    error.value = err.response?.data?.detail || t('addContacts.loadError')
   }
 }
 
@@ -63,7 +66,7 @@ async function search() {
     const users = await searchUsers(term)
     results.value = users.filter((user) => !sentUserIds.value.has(user.id))
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Erro ao pesquisar usuários.'
+    error.value = err.response?.data?.detail || t('addContacts.searchError')
   } finally {
     loading.value = false
   }
@@ -77,11 +80,11 @@ async function sendRequest(user) {
     await createContactRequest(user.id, 'Me adiciona no Reborn?')
     sentUserIds.value = new Set([...sentUserIds.value, user.id])
     results.value = results.value.filter((item) => item.id !== user.id)
-    success.value = 'Solicitação enviada.'
+    success.value = t('addContacts.sentSuccess')
     await loadRequests()
     emit('changed')
   } catch (err) {
-    error.value = err.response?.data?.detail || err.response?.data?.receiver?.[0] || 'Não foi possível enviar a solicitação.'
+    error.value = err.response?.data?.detail || err.response?.data?.receiver?.[0] || t('addContacts.sendError')
     await loadRequests()
     await search()
   }
@@ -93,12 +96,12 @@ async function acceptRequest(id) {
 
   try {
     await acceptContactRequest(id)
-    success.value = 'Contato adicionado.'
+    success.value = t('addContacts.addedSuccess')
     await loadRequests()
     results.value = []
     emit('changed')
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Não foi possível aceitar a solicitação.'
+    error.value = err.response?.data?.detail || t('addContacts.acceptError')
   }
 }
 
@@ -111,7 +114,7 @@ async function rejectRequest(id) {
     await loadRequests()
     emit('changed')
   } catch (err) {
-    error.value = err.response?.data?.detail || 'Não foi possível recusar a solicitação.'
+    error.value = err.response?.data?.detail || t('addContacts.rejectError')
   }
 }
 
@@ -131,7 +134,7 @@ onMounted(loadRequests)
     <header v-if="embedded" class="reborn-card-header">
       <h2 class="reborn-card-title">
         <span aria-hidden="true">➕</span>
-        Adicionar contatos
+        {{ t('addContacts.title') }}
       </h2>
     </header>
 
@@ -141,11 +144,11 @@ onMounted(loadRequests)
         <input
           v-model="q"
           class="reborn-input reborn-search-input"
-          placeholder="Buscar por nome ou e-mail"
+          :placeholder="t('addContacts.searchPlaceholder')"
         />
       </div>
       <button type="submit" class="reborn-btn-primary reborn-btn-search" :disabled="loading">
-        {{ loading ? 'Buscando...' : 'Buscar' }}
+        {{ loading ? t('addContacts.searching') : t('addContacts.search') }}
       </button>
       <button
         v-if="q || results.length"
@@ -153,7 +156,7 @@ onMounted(loadRequests)
         class="reborn-btn-ghost"
         @click="clearSearch"
       >
-        Limpar
+        {{ t('addContacts.clear') }}
       </button>
     </form>
 
@@ -173,45 +176,49 @@ onMounted(loadRequests)
           <div class="reborn-search-result-email">{{ user.email }}</div>
         </div>
         <button type="button" class="reborn-btn-add" @click="sendRequest(user)">
-          Adicionar
+          {{ t('addContacts.add') }}
         </button>
       </div>
     </div>
 
     <p v-else-if="q.trim() && !loading" class="reborn-muted-text">
-      Nenhum usuário disponível para adicionar com essa busca.
+      {{ t('addContacts.noResults') }}
     </p>
 
     <div v-if="pendingReceived.length" class="reborn-requests-block">
-      <h3 class="reborn-requests-title">Solicitações recebidas</h3>
+      <h3 class="reborn-requests-title">{{ t('addContacts.received') }}</h3>
       <div
         v-for="request in pendingReceived"
         :key="request.id"
         class="reborn-request-item"
       >
         <div class="reborn-request-name">
-          {{ request.sender_profile?.display_name || 'Usuário' }}
+          {{ request.sender_profile?.display_name || t('addContacts.user') }}
         </div>
         <div class="reborn-request-email">{{ request.sender_profile?.email }}</div>
         <div class="reborn-request-actions">
           <button type="button" class="reborn-btn-accept" @click="acceptRequest(request.id)">
-            Aceitar
+            {{ t('addContacts.accept') }}
           </button>
           <button type="button" class="reborn-btn-reject" @click="rejectRequest(request.id)">
-            Recusar
+            {{ t('addContacts.reject') }}
           </button>
         </div>
       </div>
     </div>
 
     <div v-if="pendingSent.length" class="reborn-requests-block">
-      <h3 class="reborn-requests-title">Solicitações enviadas</h3>
+      <h3 class="reborn-requests-title">{{ t('addContacts.sent') }}</h3>
       <div
         v-for="request in pendingSent"
         :key="request.id"
         class="reborn-request-pending"
       >
-        Aguardando {{ request.receiver_profile?.display_name || request.receiver_profile?.email || 'usuário' }} aceitar.
+        {{
+          t('addContacts.waiting', {
+            name: request.receiver_profile?.display_name || request.receiver_profile?.email || t('addContacts.user'),
+          })
+        }}
       </div>
     </div>
   </article>
