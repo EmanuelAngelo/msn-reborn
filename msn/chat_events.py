@@ -37,3 +37,23 @@ def broadcast_chat_message(message):
         event = {'type': 'chat.message', 'message': payload}
 
     async_to_sync(channel_layer.group_send)(group_name, event)
+
+
+def broadcast_typing(conversation_id, user, is_typing):
+    channel_layer = get_channel_layer()
+    if not channel_layer:
+        return
+
+    async_to_sync(channel_layer.group_send)(
+        f'conversation_{conversation_id}',
+        {
+            'type': 'chat.typing',
+            'user': {
+                'id': str(user.id),
+                'username': user.username,
+                'email': user.email,
+                'display_name': user.profile.display_name or user.username,
+            },
+            'is_typing': is_typing,
+        },
+    )

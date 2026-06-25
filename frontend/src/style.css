@@ -494,3 +494,228 @@ body {
     gap: .75rem;
   }
 }
+
+/* ===== Indicador "está digitando" estilo MSN ===== */
+
+.typing-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .5rem;
+  padding: .55rem .85rem;
+  border-radius: .75rem;
+  background: linear-gradient(180deg, #f0f9ff, #e0f2fe);
+  border: 1px solid #7dd3fc;
+  box-shadow: 0 2px 8px rgba(14, 116, 189, .12);
+  animation: typing-fade-in .25s ease-out;
+}
+
+.typing-bubble-label {
+  font-size: .8rem;
+  font-weight: 600;
+  color: #0369a1;
+}
+
+.typing-titlebar {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-style: italic;
+  animation: typing-pulse 1.5s ease-in-out infinite;
+}
+
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+  height: 1rem;
+}
+
+.typing-dots span {
+  width: .35rem;
+  height: .35rem;
+  border-radius: 999px;
+  background: #0284c7;
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
+
+.typing-dots-light span {
+  background: rgba(255, 255, 255, .95);
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: .15s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: .3s;
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: .45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes typing-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes typing-pulse {
+  0%, 100% { opacity: .85; }
+  50% { opacity: 1; }
+}
+
+/* ===== Notificação "ficou online" estilo MSN ===== */
+
+.online-notifications {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: .65rem;
+  width: min(100vw - 2rem, 320px);
+  pointer-events: none;
+}
+
+.online-toast {
+  pointer-events: auto;
+  overflow: hidden;
+  border: 1px solid #005a9f;
+  animation: online-toast-pop .35s cubic-bezier(.2, 1.2, .3, 1);
+}
+
+.online-toast-titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .35rem .55rem;
+}
+
+.online-toast-title {
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.online-toast-close {
+  width: 1.25rem;
+  height: 1.25rem;
+  border: none;
+  border-radius: .2rem;
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.online-toast-close:hover {
+  background: rgba(255, 255, 255, .35);
+}
+
+.online-toast-body {
+  display: flex;
+  width: 100%;
+  gap: .65rem;
+  padding: .65rem .75rem;
+  border: none;
+  background: linear-gradient(180deg, #f8fdff 0%, #e8f7ff 100%);
+  text-align: left;
+  cursor: pointer;
+}
+
+.online-toast-body:hover {
+  background: linear-gradient(180deg, #fff 0%, #dff4ff 100%);
+}
+
+.online-toast-avatar {
+  position: relative;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: .55rem;
+  border: 1px solid #7dd3fc;
+  background: #e0f2fe;
+}
+
+.online-toast-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: .75rem;
+  height: .75rem;
+  border-radius: 999px;
+  border: 2px solid #fff;
+  background: #29cc63;
+  box-shadow: 0 0 6px rgba(41, 204, 99, .6);
+}
+
+.online-toast-text {
+  min-width: 0;
+  font-size: .82rem;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.online-toast-message {
+  display: block;
+  margin-top: .2rem;
+  font-size: .72rem;
+  font-style: italic;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.online-toast-enter-active,
+.online-toast-leave-active {
+  transition: all .3s ease;
+}
+
+.online-toast-enter-from,
+.online-toast-leave-to {
+  opacity: 0;
+  transform: translateY(24px) scale(.96);
+}
+
+.online-toast-move {
+  transition: transform .3s ease;
+}
+
+@keyframes online-toast-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(32px) scale(.92);
+  }
+  70% {
+    transform: translateY(-4px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 640px) {
+  .online-notifications {
+    right: .5rem;
+    bottom: .5rem;
+    width: min(100vw - 1rem, 320px);
+  }
+}

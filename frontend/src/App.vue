@@ -5,6 +5,7 @@ import ContactManager from './components/ContactManager.vue'
 import ChatWindow from './components/ChatWindow.vue'
 import ProfilePanel from './components/ProfilePanel.vue'
 import LoginScreen from './components/LoginScreen.vue'
+import OnlineNotifications from './components/OnlineNotifications.vue'
 import { getMe, login as loginRequest, register as registerRequest, logout as logoutRequest } from './services/auth'
 import { getMusicStatus, listContacts, spotifyConnectUrl, syncSpotify } from './services/msn'
 import { areWebSocketsEnabled } from './services/api'
@@ -18,6 +19,7 @@ const mode = ref('login')
 const loading = ref(false)
 const error = ref('')
 const refreshSignal = ref(0)
+const onlineNotifications = ref([])
 
 const form = ref({
   email: '',
@@ -29,6 +31,175 @@ const form = ref({
 let presenceSocket = null
 let spotifyInterval = null
 let contactPollingInterval = null
+const contactStatusCache = new Map()
+const notificationTimers = new Map()
+let presenceTrackingReady = false
+
+function findContactByUserId(userId) {
+  return contacts.value.find((item) => contactBelongsToUser(item, userId)) || null
+}
+
+function syncStatusCacheFromContacts() {
+  contactStatusCache.clear()
+  for (const item of contacts.value) {
+    const userId = item.contact_profile?.user_id || item.contact
+    if (userId == null) continue
+    contactStatusCache.set(String(userId), item.contact_profile?.status || 'offline')
+  }
+}
+
+function dismissOnlineNotification(id) {
+  onlineNotifications.value = onlineNotifications.value.filter((item) => item.id !== id)
+  const timer = notificationTimers.get(id)
+  if (timer) {
+    clearTimeout(timer)
+    notificationTimers.delete(id)
+  }
+}
+
+function pushOnlineNotification(payload) {
+  const id = payload.id || `${payload.userId}-${Date.now()}`
+  const entry = { ...payload, id }
+
+  onlineNotifications.value = [
+    entry,
+    ...onlineNotifications.value.filter((item) => item.userId !== payload.userId),
+  ].slice(0, 4)
+
+  if (notificationTimers.has(id)) {
+    clearTimeout(notificationTimers.get(id))
+  }
+
+  notificationTimers.set(
+    id,
+    setTimeout(() => dismissOnlineNotification(id), 3000),
+  )
+}
+
+function notifyIfCameOnline(userId, newStatus, profileHint = null) {
+  const key = String(userId)
+
+  if (sameUserId(userId, profile.value?.user_id)) {
+    contactStatusCache.set(key, newStatus)
+    return
+  }
+
+  const previousStatus = contactStatusCache.get(key) ?? 'offline'
+
+  if (presenceTrackingReady && previousStatus === 'offline' && newStatus === 'online') {
+    const contact = findContactByUserId(userId)
+    const profileData = profileHint || contact?.contact_profile || {}
+
+    pushOnlineNotification({
+      userId: key,
+      displayName: profileData.display_name || contact?.nickname || contact?.contact_profile?.email || 'Contato',
+      avatarUrl: profileData.avatar_url || contact?.contact_profile?.avatar_url || '',
+      personalMessage: profileData.personal_message || contact?.contact_profile?.personal_message || '',
+    })
+  }
+
+  contactStatusCache.set(key, newStatus)
+}
+
+function detectOnlineFromContacts(previousContacts) {
+  if (!presenceTrackingReady) return
+
+  for (const item of contacts.value) {
+    const userId = String(item.contact_profile?.user_id || item.contact)
+    const newStatus = item.contact_profile?.status || 'offline'
+    const previous = previousContacts.get(userId)
+    if (previous === undefined) {
+      contactStatusCache.set(userId, newStatus)
+      continue
+    }
+    notifyIfCameOnline(userId, newStatus, item.contact_profile)
+  }
+}
+
+function openContactFromNotification(notification) {
+  const contact = findContactByUserId(notification.userId)
+  if (contact) selectedContact.value = contact
+  dismissOnlineNotification(notification.id)
+}
+
+function enablePresenceTracking() {
+  syncStatusCacheFromContacts()
+  window.setTimeout(() => {
+    presenceTrackingReady = true
+  }, 2000)
+}
+
+function sameUserId(a, b) {
+  if (a == null || b == null) return false
+  return String(a) === String(b)
+}
+
+function contactBelongsToUser(item, userId) {
+  if (!item || userId == null) return false
+  return sameUserId(item.contact_profile?.user_id, userId) || sameUserId(item.contact, userId)
+}
+
+function patchContactInList(userId, patchFn) {
+  contacts.value = contacts.value.map((item) => {
+    if (!contactBelongsToUser(item, userId)) return item
+    return patchFn(item)
+  })
+}
+
+function patchSelectedContact(userId, patchFn) {
+  if (selectedContact.value && contactBelongsToUser(selectedContact.value, userId)) {
+    selectedContact.value = patchFn(selectedContact.value)
+  }
+}
+
+function applyContactStatusUpdate(userId, status) {
+  notifyIfCameOnline(userId, status)
+
+  const mergeStatus = (item) => ({
+    ...item,
+    contact_profile: {
+      ...item.contact_profile,
+      status,
+    },
+  })
+
+  patchContactInList(userId, mergeStatus)
+  patchSelectedContact(userId, mergeStatus)
+}
+
+function applyContactProfileUpdate(userId, profileData) {
+  if (!profileData) return
+
+  if (profileData.status) {
+    notifyIfCameOnline(userId, profileData.status, profileData)
+  }
+
+  const mergeProfile = (item) => ({
+    ...item,
+    contact_profile: {
+      ...item.contact_profile,
+      ...profileData,
+    },
+  })
+
+  patchContactInList(userId, mergeProfile)
+  patchSelectedContact(userId, mergeProfile)
+}
+
+function applyContactMusicUpdate(userId, musicData) {
+  const mergeMusic = (item) => ({
+    ...item,
+    music_status: musicData ?? {
+      is_playing: false,
+      track_name: '',
+      artist_name: '',
+      album_name: '',
+    },
+  })
+
+  patchContactInList(userId, mergeMusic)
+  patchSelectedContact(userId, mergeMusic)
+}
 
 function selectedContactStillExists(newContacts) {
   if (!selectedContact.value) return false
@@ -36,6 +207,7 @@ function selectedContactStillExists(newContacts) {
 }
 
 async function refreshContacts({ keepSelection = true } = {}) {
+  const previousStatuses = new Map(contactStatusCache)
   const newContacts = await listContacts()
   contacts.value = newContacts
 
@@ -44,6 +216,12 @@ async function refreshContacts({ keepSelection = true } = {}) {
   } else if (selectedContact.value) {
     selectedContact.value = newContacts.find((item) => item.id === selectedContact.value.id) || selectedContact.value
   }
+
+  if (presenceTrackingReady) {
+    detectOnlineFromContacts(previousStatuses)
+  } else if (!contactStatusCache.size) {
+    syncStatusCacheFromContacts()
+  }
 }
 
 async function loadDashboard() {
@@ -51,6 +229,7 @@ async function loadDashboard() {
   await refreshContacts()
   music.value = await getMusicStatus()
   refreshSignal.value++
+  enablePresenceTracking()
   startPresenceSocket()
   startSpotifyAutoSync()
 }
@@ -58,8 +237,6 @@ async function loadDashboard() {
 function startPresenceSocket() {
   stopPresenceSocket()
 
-  // Em PythonAnywhere, usamos polling REST para contatos/convites/status,
-  // evitando erro no console por tentativa de WebSocket.
   if (!areWebSocketsEnabled()) {
     startContactPolling()
     return
@@ -81,62 +258,19 @@ function startPresenceSocket() {
         await refreshContacts({ keepSelection: false })
       },
 
-      async onContactStatusUpdated(event) {
-        contacts.value = contacts.value.map((item) => {
-          if (item.contact_profile?.user_id !== event.user_id) return item
-          return {
-            ...item,
-            contact_profile: {
-              ...item.contact_profile,
-              status: event.status,
-            },
-          }
-        })
-
-        if (selectedContact.value?.contact_profile?.user_id === event.user_id) {
-          selectedContact.value = {
-            ...selectedContact.value,
-            contact_profile: {
-              ...selectedContact.value.contact_profile,
-              status: event.status,
-            },
-          }
-        }
+      onContactStatusUpdated(event) {
+        applyContactStatusUpdate(event.user_id, event.status)
       },
 
-      async onProfileUpdated(event) {
-        if (profile.value?.user_id === event.user_id) {
-          profile.value = event.profile
-        }
-
-        contacts.value = contacts.value.map((item) => {
-          if (item.contact_profile?.user_id !== event.user_id) return item
-          return {
-            ...item,
-            contact_profile: event.profile,
-          }
-        })
-
-        if (selectedContact.value?.contact_profile?.user_id === event.user_id) {
-          selectedContact.value = {
-            ...selectedContact.value,
-            contact_profile: event.profile,
-          }
-        }
+      onProfileUpdated(event) {
+        applyContactProfileUpdate(event.user_id, event.profile)
       },
 
-      async onMusicStatusUpdated(event) {
-        if (profile.value?.user_id === event.user_id) {
+      onMusicStatusUpdated(event) {
+        if (sameUserId(profile.value?.user_id, event.user_id)) {
           music.value = event.music
         }
-
-        contacts.value = contacts.value.map((item) => {
-          if (item.contact_profile?.user_id !== event.user_id) return item
-          return {
-            ...item,
-            music_status: event.music,
-          }
-        })
+        applyContactMusicUpdate(event.user_id, event.music)
       },
 
       onError() {
@@ -166,10 +300,10 @@ function startContactPolling() {
     if (!profile.value) return
 
     try {
-      await refreshContacts()
+      await refreshContacts({ keepSelection: true })
       refreshSignal.value++
     } catch {
-      // Mantém o frontend funcionando mesmo quando WebSocket não está disponível no servidor.
+      // Mantém o frontend funcionando quando WebSocket não está disponível.
     }
   }, 5000)
 }
@@ -181,12 +315,14 @@ function stopContactPolling() {
   }
 }
 
-
 async function syncSpotifyMusicSilently() {
   try {
     music.value = await syncSpotify()
-  } catch (err) {
-    // Spotify pode não estar conectado ainda. Não quebra o fluxo do chat.
+    if (profile.value?.user_id) {
+      applyContactMusicUpdate(profile.value.user_id, music.value)
+    }
+  } catch {
+    // Spotify pode não estar conectado ainda.
   }
 }
 
@@ -224,7 +360,7 @@ async function register() {
   try {
     profile.value = await registerRequest(form.value)
     await loadDashboard()
-  } catch (err) {
+  } catch {
     error.value = 'Não foi possível criar a conta. Verifique os campos.'
   } finally {
     loading.value = false
@@ -236,7 +372,10 @@ async function refreshSpotify() {
 
   try {
     music.value = await syncSpotify()
-    await refreshContacts()
+    if (profile.value?.user_id) {
+      applyContactMusicUpdate(profile.value.user_id, music.value)
+    }
+    await refreshContacts({ keepSelection: true })
   } catch (err) {
     const detail = err.response?.data?.detail || ''
     if (err.response?.status === 400 && detail.toLowerCase().includes('spotify')) {
@@ -254,6 +393,9 @@ async function handleContactsChanged() {
 
 function handleProfileUpdated(updatedProfile) {
   profile.value = updatedProfile
+  if (profile.value?.user_id) {
+    applyContactProfileUpdate(profile.value.user_id, updatedProfile)
+  }
   refreshSignal.value++
 }
 
@@ -270,6 +412,11 @@ async function logout() {
   contacts.value = []
   music.value = null
   selectedContact.value = null
+  onlineNotifications.value = []
+  contactStatusCache.clear()
+  presenceTrackingReady = false
+  notificationTimers.forEach((timer) => clearTimeout(timer))
+  notificationTimers.clear()
   error.value = ''
 }
 
@@ -300,6 +447,8 @@ onBeforeUnmount(() => {
   stopSpotifyAutoSync()
   stopPresenceSocket()
   stopContactPolling()
+  notificationTimers.forEach((timer) => clearTimeout(timer))
+  notificationTimers.clear()
 })
 </script>
 
@@ -346,5 +495,11 @@ onBeforeUnmount(() => {
         <ChatWindow :contact="selectedContact" :current-user="profile" @contact-changed="handleContactsChanged" />
       </div>
     </div>
+
+    <OnlineNotifications
+      :notifications="onlineNotifications"
+      @dismiss="dismissOnlineNotification"
+      @open="openContactFromNotification"
+    />
   </main>
 </template>

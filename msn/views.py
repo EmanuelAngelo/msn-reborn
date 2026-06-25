@@ -19,7 +19,7 @@ from rest_framework.decorators import action, api_view, parser_classes, permissi
 from rest_framework.response import Response
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 
-from .chat_events import broadcast_chat_message
+from .chat_events import broadcast_chat_message, broadcast_typing
 from .models import Contact, ContactRequest, Conversation, ConversationParticipant, Message, SpotifyIntegration, UserMusicStatus
 from .serializers import (
     ContactRequestSerializer, ContactSerializer, ConversationSerializer, MessageSerializer,
@@ -44,7 +44,7 @@ def notify_presence(event_type, **payload):
     _group_send('presence_global', {'type': event_type, **payload})
 
 
-from .presence import get_public_status
+from .presence import get_public_status, public_music_payload, public_profile_payload
 
 
 def broadcast_user_status(user):
@@ -59,8 +59,21 @@ def broadcast_user_profile(user, request=None):
     notify_presence(
         'profile.updated',
         user_id=str(user.id),
-        profile=UserProfileSerializer(user.profile, context={'request': request}).data,
+        profile=public_profile_payload(user, request),
     )
+
+
+def broadcast_user_music(user):
+    notify_presence(
+        'music.status.updated',
+        user_id=str(user.id),
+        music=public_music_payload(user),
+    )
+
+
+def broadcast_contact_live(user, request=None):
+    broadcast_user_profile(user, request=request)
+    broadcast_user_music(user)
 
 
 def auth_payload(user):
@@ -146,7 +159,7 @@ def me(request):
         if old_status != profile.status:
             broadcast_user_status(request.user)
 
-        broadcast_user_profile(request.user, request=request)
+        broadcast_contact_live(request.user, request=request)
         return Response(UserProfileSerializer(profile, context={'request': request}).data)
     return Response(UserProfileSerializer(request.user.profile, context={'request': request}).data)
 
@@ -163,7 +176,7 @@ def update_my_status(request):
         request.user.profile.last_seen_at = timezone.now()
     request.user.profile.save(update_fields=['status', 'last_seen_at', 'updated_at'])
     broadcast_user_status(request.user)
-    broadcast_user_profile(request.user, request=request)
+    broadcast_contact_live(request.user, request=request)
     return Response(UserProfileSerializer(request.user.profile, context={'request': request}).data)
 
 
@@ -363,6 +376,7 @@ class ConversationViewSet(viewsets.ModelViewSet):
             serializer.is_valid(raise_exception=True)
             message = serializer.save(conversation=conversation, sender=request.user)
             conversation.save(update_fields=['updated_at'])
+            broadcast_typing(conversation.id, request.user, is_typing=False)
             broadcast_chat_message(message)
             return Response(MessageSerializer(message).data, status=201)
 
@@ -542,7 +556,7 @@ def spotify_sync(request):
         status_obj.duration_ms = 0
         status_obj.save()
         data = MusicStatusSerializer(status_obj).data
-        notify_presence('music.status.updated', user_id=str(request.user.id), music=data)
+        broadcast_user_music(request.user)
         return Response(data)
 
     if response.status_code == 401:
@@ -576,5 +590,5 @@ def spotify_sync(request):
     status_obj.save()
 
     data = MusicStatusSerializer(status_obj).data
-    notify_presence('music.status.updated', user_id=str(request.user.id), music=data)
+    broadcast_user_music(request.user)
     return Response(data)

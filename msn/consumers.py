@@ -197,6 +197,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         if not text:
             return
 
+        await self.broadcast_typing(is_typing=False)
+
         message = await self.create_message(
             conversation_id=self.conversation_id,
             sender_id=str(self.user.id),
@@ -229,15 +231,12 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         )
 
     async def broadcast_typing(self, is_typing):
+        user_payload = await self.get_typing_user_payload()
         await self.channel_layer.group_send(
             self.group_name,
             {
                 'type': 'chat.typing',
-                'user': {
-                    'id': str(self.user.id),
-                    'username': self.user.username,
-                    'email': self.user.email,
-                },
+                'user': user_payload,
                 'is_typing': is_typing,
             },
         )
@@ -260,11 +259,21 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         )
 
     @database_sync_to_async
+    def get_typing_user_payload(self):
+        profile = self.user.profile
+        return {
+            'id': str(self.user.id),
+            'username': self.user.username,
+            'email': self.user.email,
+            'display_name': profile.display_name or self.user.username,
+        }
+
+    @database_sync_to_async
     def get_user_by_token(self, token_key):
         if not token_key:
             return None
         try:
-            return Token.objects.select_related('user').get(key=token_key).user
+            return Token.objects.select_related('user', 'user__profile').get(key=token_key).user
         except Token.DoesNotExist:
             return None
 

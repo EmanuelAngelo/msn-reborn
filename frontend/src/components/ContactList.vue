@@ -1,4 +1,6 @@
 <script setup>
+import { resolveMediaUrl } from '../utils/media'
+
 defineProps({
   contacts: { type: Array, default: () => [] },
   selectedId: { type: String, default: null },
@@ -15,19 +17,8 @@ function statusClass(status) {
   }[status] || 'bg-slate-400'
 }
 
-function apiOrigin() {
-  const base = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
-  return base.replace(/\/api\/?$/, '')
-}
-
-function mediaUrl(url) {
-  if (!url) return ''
-  if (url.startsWith('http://') || url.startsWith('https://')) return url
-  return `${apiOrigin()}${url}`
-}
-
 function avatarSrc(profile) {
-  return mediaUrl(profile?.avatar_url || profile?.avatar || '')
+  return resolveMediaUrl(profile?.avatar_url || profile?.avatar || '')
 }
 
 function initials(profile) {
@@ -49,7 +40,7 @@ function initials(profile) {
 
     <button
       v-for="item in contacts"
-      :key="item.id"
+      :key="`${item.id}-${item.contact_profile?.status}-${item.contact_profile?.display_name}-${item.contact_profile?.avatar_url}-${item.music_status?.track_name || ''}`"
       type="button"
       class="mb-2 flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-left shadow-sm transition hover:bg-sky-50"
       :class="selectedId === item.id ? 'border-sky-500 bg-sky-50' : 'border-slate-200 bg-white'"
@@ -58,6 +49,7 @@ function initials(profile) {
       <span class="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-sky-200 bg-sky-50">
         <img
           v-if="avatarSrc(item.contact_profile)"
+          :key="avatarSrc(item.contact_profile)"
           :src="avatarSrc(item.contact_profile)"
           alt="Foto do contato"
           class="h-full w-full object-cover"

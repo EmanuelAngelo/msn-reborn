@@ -1,5 +1,5 @@
 <script setup>
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { areWebSocketsEnabled } from '../services/api'
 import { createChatSocket } from '../services/chatSocket'
 import { listMessages, openDirectConversation, sendMessage as sendMessageRest, sendNudge as sendNudgeRest, blockContact, toggleFavoriteContact } from '../services/msn'
@@ -17,17 +17,69 @@ const props = defineProps({
 
 const emit = defineEmits(['contact-changed'])
 
+const contactProfile = computed(() => props.contact?.contact_profile || null)
+const contactMusic = computed(() => props.contact?.music_status || null)
+
+function statusLabel(status) {
+  return {
+    online: 'Online',
+    away: 'Ausente',
+    busy: 'Ocupado',
+    invisible: 'Invisível',
+    offline: 'Offline',
+  }[status] || status
+}
+
 const conversation = ref(null)
 const messages = ref([])
 const newMessage = ref('')
-const typingText = ref('')
+const isContactTyping = ref(false)
+const typingDisplayName = ref('')
 const connecting = ref(false)
 const error = ref('')
 const messageBox = ref(null)
 
 let chatSocket = null
 let typingTimeout = null
+let typingClearTimeout = null
 let messagePollingInterval = null
+
+function contactDisplayName() {
+  return props.contact?.contact_profile?.display_name
+    || props.contact?.contact_profile?.email
+    || 'Contato'
+}
+
+function clearTypingIndicator() {
+  isContactTyping.value = false
+  typingDisplayName.value = ''
+  if (typingClearTimeout) {
+    clearTimeout(typingClearTimeout)
+    typingClearTimeout = null
+  }
+}
+
+function showTypingIndicator(user, isTyping) {
+  if (!isTyping) {
+    clearTypingIndicator()
+    return
+  }
+
+  typingDisplayName.value = user?.display_name || user?.username || contactDisplayName()
+  isContactTyping.value = true
+  scrollToBottom()
+
+  if (typingClearTimeout) clearTimeout(typingClearTimeout)
+  typingClearTimeout = setTimeout(() => {
+    isContactTyping.value = false
+  }, 3500)
+}
+
+function messageFromContact(message) {
+  const contactId = getContactUserId()
+  const senderId = message?.sender || message?.sender_obj?.id
+  return contactId && senderId && String(senderId) === String(contactId)
+}
 
 function getContactUserId() {
   return props.contact?.contact || props.contact?.contact_profile?.user_id || null
@@ -93,18 +145,22 @@ function connectSocket() {
     chatSocket = createChatSocket(conversation.value.id, {
       onMessage(message) {
         addMessage(message)
+        if (messageFromContact(message)) {
+          clearTypingIndicator()
+        }
         scrollToBottom()
       },
 
       onNudge(message) {
         addMessage(message)
+        clearTypingIndicator()
         document.body.classList.add('screen-shake')
         setTimeout(() => document.body.classList.remove('screen-shake'), 500)
         scrollToBottom()
       },
 
       onTyping(data) {
-        typingText.value = data.is_typing ? `${data.user.username} está digitando...` : ''
+        showTypingIndicator(data.user, data.is_typing)
       },
 
       onError() {
@@ -155,7 +211,7 @@ async function openConversation() {
   disconnectSocket()
   messages.value = []
   conversation.value = null
-  typingText.value = ''
+  clearTypingIndicator()
   error.value = ''
 
   const contactUserId = getContactUserId()
@@ -181,7 +237,7 @@ async function sendMessage() {
   if (chatSocket?.readyState === WebSocket.OPEN) {
     chatSocket.sendMessage(text)
     newMessage.value = ''
-    chatSocket.typingStop()
+    stopTypingSignal()
     return
   }
 
@@ -238,12 +294,27 @@ async function handleToggleFavorite() {
     error.value = 'Não foi possível atualizar favorito.'
   }
 }
+function stopTypingSignal() {
+  if (typingTimeout) {
+    clearTimeout(typingTimeout)
+    typingTimeout = null
+  }
+  if (chatSocket?.readyState === WebSocket.OPEN) {
+    chatSocket.typingStop()
+  }
+}
+
 function handleTyping() {
-  if (!areWebSocketsEnabled() || !chatSocket) return
+  if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) return
+
+  if (!newMessage.value.trim()) {
+    stopTypingSignal()
+    return
+  }
 
   chatSocket.typingStart()
   clearTimeout(typingTimeout)
-  typingTimeout = setTimeout(() => chatSocket?.typingStop(), 1000)
+  typingTimeout = setTimeout(stopTypingSignal, 2000)
 }
 
 watch(
@@ -253,6 +324,8 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  stopTypingSignal()
+  clearTypingIndicator()
   stopMessagePolling()
   disconnectSocket()
 })
@@ -262,12 +335,28 @@ onBeforeUnmount(() => {
   <section class="msn-window flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-sky-700 bg-white/95">
     <div class="msn-titlebar shrink-0 px-4 py-3 text-white">
       <div class="flex items-center justify-between gap-2">
-        <div>
-          <div class="font-bold">
-            {{ contact?.contact_profile?.display_name || contact?.contact_profile?.email || 'Selecione um contato' }}
+        <div class="min-w-0 flex-1">
+          <div class="truncate font-bold">
+            {{ contactProfile?.display_name || contactProfile?.email || 'Selecione um contato' }}
           </div>
-          <div v-if="contact?.contact_profile" class="text-xs text-white/90">
-            Status: {{ contact.contact_profile.status }}
+          <div v-if="contactProfile" class="text-xs text-white/90">
+            <span v-if="isContactTyping" class="typing-titlebar">
+              {{ typingDisplayName }} está digitando
+              <span class="typing-dots typing-dots-light"><span></span><span></span><span></span></span>
+            </span>
+            <span v-else>Status: {{ statusLabel(contactProfile.status) }}</span>
+          </div>
+          <div
+            v-if="contactProfile?.personal_message && !isContactTyping"
+            class="truncate text-xs italic text-white/80"
+          >
+            "{{ contactProfile.personal_message }}"
+          </div>
+          <div
+            v-if="contactMusic?.is_playing && contactMusic?.track_name && !isContactTyping"
+            class="truncate text-xs text-sky-100"
+          >
+            ♫ {{ contactMusic.artist_name }} — {{ contactMusic.track_name }}
           </div>
         </div>
         <div v-if="contact" class="flex shrink-0 gap-1">
@@ -312,8 +401,9 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div v-if="typingText" class="mt-2 text-xs italic text-slate-500">
-          {{ typingText }}
+        <div v-if="isContactTyping" class="typing-bubble">
+          <span class="typing-bubble-label">{{ typingDisplayName }} está digitando</span>
+          <span class="typing-dots"><span></span><span></span><span></span></span>
         </div>
       </div>
 
@@ -323,6 +413,7 @@ onBeforeUnmount(() => {
           class="flex-1 rounded border border-blue-300 px-3 py-2 outline-none focus:ring-2 focus:ring-sky-300"
           placeholder="Digite sua mensagem..."
           @input="handleTyping"
+          @blur="stopTypingSignal"
           @keyup.enter="sendMessage"
         />
 

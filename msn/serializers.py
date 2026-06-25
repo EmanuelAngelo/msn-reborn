@@ -43,12 +43,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_avatar_url(self, obj):
         if not obj.avatar:
             return ''
-
-        request = self.context.get('request')
-        url = obj.avatar.url
-        if request:
-            return request.build_absolute_uri(url)
-        return url
+        return obj.avatar.url
 
 
 class UserSearchSerializer(serializers.ModelSerializer):

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { updateMe } from '../services/auth'
+import { resolveMediaUrl } from '../utils/media'
 
 const props = defineProps({
   profile: { type: Object, default: null },
@@ -26,20 +27,9 @@ const statusOptions = [
   { value: 'offline', label: 'Offline' },
 ]
 
-function apiOrigin() {
-  const base = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api'
-  return base.replace(/\/api\/?$/, '')
-}
-
-function mediaUrl(url) {
-  if (!url) return ''
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) return url
-  return `${apiOrigin()}${url}`
-}
-
 const avatarSrc = computed(() => {
   if (avatarPreview.value) return avatarPreview.value
-  return mediaUrl(props.profile?.avatar_url || props.profile?.avatar || '')
+  return resolveMediaUrl(props.profile?.avatar_url || props.profile?.avatar || '')
 })
 
 function initials(name) {
