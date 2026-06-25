@@ -56,6 +56,10 @@ api.interceptors.request.use((config) => {
 
   if (token) {
     config.headers.Authorization = `Token ${token}`
+    config.params = config.params || {}
+    if (!config.params.auth_token) {
+      config.params.auth_token = token
+    }
   }
 
   return config
