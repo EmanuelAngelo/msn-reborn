@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import AppHeader from './components/AppHeader.vue'
 import AppSidebar from './components/AppSidebar.vue'
+import InstagramLink from './components/InstagramLink.vue'
 import ContactList from './components/ContactList.vue'
 import ContactManager from './components/ContactManager.vue'
 import ChatWindow from './components/ChatWindow.vue'
@@ -952,6 +953,10 @@ onBeforeUnmount(() => {
         <span>{{ t('nav.configShort') }}</span>
       </button>
     </nav>
+
+    <div class="reborn-instagram-mobile">
+      <InstagramLink />
+    </div>
 
     <ChatTaskbar
       :chats="minimizedChats"

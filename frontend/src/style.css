@@ -447,6 +447,13 @@ body {
   text-align: center;
 }
 
+.login-instagram-link {
+  display: inline-flex;
+  width: auto;
+  margin-top: .85rem;
+  justify-content: center;
+}
+
 .login-toggle {
   border: none;
   background: none;
@@ -639,6 +646,94 @@ body {
   border: 1px solid rgba(255,255,255,.75);
   box-shadow: 0 8px 28px rgba(14, 116, 189, .12);
   backdrop-filter: blur(8px);
+  min-height: 0;
+}
+
+.reborn-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.reborn-sidebar-instagram {
+  margin-top: auto;
+  padding-top: .75rem;
+  flex-shrink: 0;
+}
+
+.reborn-instagram-link {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  width: 100%;
+  padding: .65rem .85rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, rgba(131, 58, 180, .12), rgba(225, 48, 108, .12), rgba(247, 119, 55, .12));
+  color: #be185d;
+  font-size: .78rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background .15s, border-color .15s, transform .12s;
+}
+
+.reborn-instagram-link:hover {
+  background: linear-gradient(135deg, rgba(131, 58, 180, .2), rgba(225, 48, 108, .2), rgba(247, 119, 55, .2));
+  border-color: rgba(225, 48, 108, .35);
+  transform: translateY(-1px);
+}
+
+.reborn-instagram-link--compact {
+  justify-content: center;
+  width: auto;
+  padding: .55rem;
+}
+
+.reborn-instagram-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+}
+
+.reborn-instagram-handle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reborn-instagram-mobile {
+  display: flex;
+  justify-content: center;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 4.25rem;
+  z-index: 9975;
+  padding: 0 .75rem;
+  pointer-events: none;
+}
+
+.reborn-instagram-mobile .reborn-instagram-link {
+  pointer-events: auto;
+  width: auto;
+  max-width: 100%;
+  box-shadow: 0 4px 16px rgba(14, 116, 189, .15);
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, .92);
+}
+
+@media (min-width: 1024px) {
+  .reborn-instagram-mobile {
+    display: none;
+  }
+}
+
+.has-chat-taskbar .reborn-instagram-mobile {
+  bottom: 8.5rem;
 }
 
 @media (min-width: 1024px) {
@@ -1972,6 +2067,20 @@ body {
   background: linear-gradient(180deg, rgba(30, 41, 59, .92), rgba(15, 23, 42, .88));
   border-color: rgba(71, 85, 105, .55);
   box-shadow: 0 8px 28px rgba(0, 0, 0, .25);
+}
+
+[data-theme="dark"] .reborn-instagram-link {
+  background: linear-gradient(135deg, rgba(131, 58, 180, .22), rgba(225, 48, 108, .18), rgba(247, 119, 55, .15));
+  color: #f472b6;
+}
+
+[data-theme="dark"] .reborn-instagram-link:hover {
+  background: linear-gradient(135deg, rgba(131, 58, 180, .32), rgba(225, 48, 108, .28), rgba(247, 119, 55, .22));
+  border-color: rgba(244, 114, 182, .4);
+}
+
+[data-theme="dark"] .reborn-instagram-mobile .reborn-instagram-link {
+  background: rgba(30, 41, 59, .94);
 }
 
 [data-theme="dark"] .reborn-nav-item {

@@ -164,6 +164,10 @@ export const messages = {
       registerError: 'Não foi possível criar a conta. Verifique os campos.',
       spotifyError: 'Não foi possível sincronizar com Spotify.',
     },
+    footer: {
+      instagramHandle: '@devemanuelangelo',
+      instagramAria: 'Instagram @devemanuelangelo — abrir em nova aba',
+    },
   },
   en: {
     nav: {
@@ -328,6 +332,10 @@ export const messages = {
       loginError: 'Login failed. Check your credentials.',
       registerError: 'Could not create account. Check the fields.',
       spotifyError: 'Could not sync with Spotify.',
+    },
+    footer: {
+      instagramHandle: '@devemanuelangelo',
+      instagramAria: 'Instagram @devemanuelangelo — open in new tab',
     },
   },
 }

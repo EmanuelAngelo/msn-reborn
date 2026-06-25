@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useLocale } from '../composables/useLocale'
+import InstagramLink from './InstagramLink.vue'
 
 defineProps({
   mode: { type: String, default: 'login' },
@@ -183,6 +184,7 @@ function statusClass(status) {
             <button type="button" class="login-toggle" @click="$emit('toggle-mode')">
               {{ mode === 'login' ? t('login.noAccount') : t('login.hasAccount') }}
             </button>
+            <InstagramLink class="login-instagram-link" />
             <p class="login-footnote">{{ t('login.footnote') }}</p>
           </div>
         </div>
