@@ -15,7 +15,7 @@ const props = defineProps({
   },
 })
 
-const emit = defineEmits(['contact-changed'])
+const emit = defineEmits(['contact-changed', 'minimize', 'close'])
 
 const contactProfile = computed(() => props.contact?.contact_profile || null)
 const contactMusic = computed(() => props.contact?.music_status || null)
@@ -359,7 +359,7 @@ onBeforeUnmount(() => {
             ♫ {{ contactMusic.artist_name }} — {{ contactMusic.track_name }}
           </div>
         </div>
-        <div v-if="contact" class="flex shrink-0 gap-1">
+        <div v-if="contact" class="flex shrink-0 items-center gap-1">
           <button
             class="rounded bg-white/20 px-2 py-1 text-xs hover:bg-white/30"
             :title="contact.is_favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'"
@@ -368,11 +368,25 @@ onBeforeUnmount(() => {
             {{ contact.is_favorite ? '★' : '☆' }}
           </button>
           <button
-            class="rounded bg-white/20 px-2 py-1 text-xs hover:bg-white/30"
+            class="rounded bg-white/20 px-2 py-1 text-[10px] hover:bg-white/30 sm:text-xs"
             title="Bloquear contato"
             @click="handleBlockContact"
           >
             Bloquear
+          </button>
+          <button
+            class="msn-window-btn"
+            title="Minimizar conversa"
+            @click="$emit('minimize')"
+          >
+            _
+          </button>
+          <button
+            class="msn-window-btn"
+            title="Fechar conversa"
+            @click="$emit('close')"
+          >
+            ×
           </button>
         </div>
       </div>

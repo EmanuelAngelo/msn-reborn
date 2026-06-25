@@ -1,8 +1,9 @@
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ContactList from './components/ContactList.vue'
 import ContactManager from './components/ContactManager.vue'
 import ChatWindow from './components/ChatWindow.vue'
+import ChatTaskbar from './components/ChatTaskbar.vue'
 import ProfilePanel from './components/ProfilePanel.vue'
 import LoginScreen from './components/LoginScreen.vue'
 import OnlineNotifications from './components/OnlineNotifications.vue'
@@ -15,6 +16,9 @@ const profile = ref(null)
 const music = ref(null)
 const contacts = ref([])
 const selectedContact = ref(null)
+const openChats = ref([])
+const activeChatId = ref(null)
+const minimizedChatIds = ref([])
 const mode = ref('login')
 const loading = ref(false)
 const error = ref('')
@@ -118,9 +122,88 @@ function detectOnlineFromContacts(previousContacts) {
 
 function openContactFromNotification(notification) {
   const contact = findContactByUserId(notification.userId)
-  if (contact) selectedContact.value = contact
+  if (contact) selectContact(contact)
   dismissOnlineNotification(notification.id)
 }
+
+function getOpenChatContact(chatId) {
+  const fromList = contacts.value.find((item) => item.id === chatId)
+  const fromOpen = openChats.value.find((item) => item.id === chatId)
+  return fromList ? { ...fromOpen, ...fromList } : fromOpen
+}
+
+function syncOpenChatsFromContacts() {
+  const validIds = new Set(contacts.value.map((item) => item.id))
+
+  openChats.value = openChats.value
+    .map((openChat) => {
+      const updated = contacts.value.find((item) => item.id === openChat.id)
+      return updated ? { ...openChat, ...updated } : openChat
+    })
+    .filter((openChat) => validIds.has(openChat.id))
+
+  minimizedChatIds.value = minimizedChatIds.value.filter((id) => validIds.has(id))
+
+  if (activeChatId.value && !validIds.has(activeChatId.value)) {
+    activeChatId.value = null
+  }
+}
+
+function selectContact(contact) {
+  if (!contact) return
+
+  selectedContact.value = contact
+
+  if (!openChats.value.some((item) => item.id === contact.id)) {
+    openChats.value.push({ ...contact })
+  } else {
+    syncOpenChatsFromContacts()
+  }
+
+  activeChatId.value = contact.id
+  minimizedChatIds.value = minimizedChatIds.value.filter((id) => id !== contact.id)
+}
+
+function minimizeChat(chatId) {
+  if (!chatId) return
+  if (!minimizedChatIds.value.includes(chatId)) {
+    minimizedChatIds.value.push(chatId)
+  }
+  if (activeChatId.value === chatId) {
+    activeChatId.value = null
+  }
+}
+
+function restoreChat(chatId) {
+  const contact = getOpenChatContact(chatId)
+  if (!contact) return
+  selectContact(contact)
+}
+
+function closeChat(chatId) {
+  openChats.value = openChats.value.filter((item) => item.id !== chatId)
+  minimizedChatIds.value = minimizedChatIds.value.filter((id) => id !== chatId)
+
+  if (activeChatId.value === chatId) {
+    activeChatId.value = null
+  }
+
+  if (selectedContact.value?.id === chatId) {
+    selectedContact.value = contacts.value[0] || null
+  }
+}
+
+function isChatExpanded(chatId) {
+  return activeChatId.value === chatId && !minimizedChatIds.value.includes(chatId)
+}
+
+const minimizedChats = computed(() =>
+  openChats.value.filter((chat) => minimizedChatIds.value.includes(chat.id)),
+)
+
+const hasExpandedChat = computed(() =>
+  Boolean(activeChatId.value && !minimizedChatIds.value.includes(activeChatId.value)),
+)
 
 function enablePresenceTracking() {
   syncStatusCacheFromContacts()
@@ -165,6 +248,7 @@ function applyContactStatusUpdate(userId, status) {
 
   patchContactInList(userId, mergeStatus)
   patchSelectedContact(userId, mergeStatus)
+  syncOpenChatsFromContacts()
 }
 
 function applyContactProfileUpdate(userId, profileData) {
@@ -184,6 +268,7 @@ function applyContactProfileUpdate(userId, profileData) {
 
   patchContactInList(userId, mergeProfile)
   patchSelectedContact(userId, mergeProfile)
+  syncOpenChatsFromContacts()
 }
 
 function applyContactMusicUpdate(userId, musicData) {
@@ -199,6 +284,7 @@ function applyContactMusicUpdate(userId, musicData) {
 
   patchContactInList(userId, mergeMusic)
   patchSelectedContact(userId, mergeMusic)
+  syncOpenChatsFromContacts()
 }
 
 function selectedContactStillExists(newContacts) {
@@ -212,7 +298,7 @@ async function refreshContacts({ keepSelection = true } = {}) {
   contacts.value = newContacts
 
   if (!keepSelection || !selectedContactStillExists(newContacts)) {
-    selectedContact.value = newContacts[0] || null
+    selectedContact.value = null
   } else if (selectedContact.value) {
     selectedContact.value = newContacts.find((item) => item.id === selectedContact.value.id) || selectedContact.value
   }
@@ -222,6 +308,8 @@ async function refreshContacts({ keepSelection = true } = {}) {
   } else if (!contactStatusCache.size) {
     syncStatusCacheFromContacts()
   }
+
+  syncOpenChatsFromContacts()
 }
 
 async function loadDashboard() {
@@ -412,6 +500,9 @@ async function logout() {
   contacts.value = []
   music.value = null
   selectedContact.value = null
+  openChats.value = []
+  activeChatId.value = null
+  minimizedChatIds.value = []
   onlineNotifications.value = []
   contactStatusCache.clear()
   presenceTrackingReady = false
@@ -463,7 +554,7 @@ onBeforeUnmount(() => {
     @toggle-mode="toggleAuthMode"
   />
 
-  <main v-else class="app-shell">
+  <main v-else class="app-shell" :class="{ 'has-chat-taskbar': minimizedChats.length }">
     <div class="app-dashboard app-dashboard-mobile-stack">
       <section class="msn-window app-sidebar rounded-xl border border-sky-700 bg-white/90">
         <div class="msn-titlebar flex shrink-0 items-center justify-between px-3 py-2 text-white sm:px-4">
@@ -481,7 +572,7 @@ onBeforeUnmount(() => {
 
         <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <ProfilePanel :profile="profile" :music="music" @updated="handleProfileUpdated" />
-          <ContactList :contacts="contacts" :selected-id="selectedContact?.id" @select="selectedContact = $event" />
+          <ContactList :contacts="contacts" :selected-id="selectedContact?.id" @select="selectContact" />
           <ContactManager
             :current-user-id="profile.user_id"
             :refresh-signal="refreshSignal"
@@ -492,9 +583,39 @@ onBeforeUnmount(() => {
 
       <div class="app-chat min-h-0">
         <div v-if="error" class="mb-2 rounded bg-red-50 p-2 text-sm text-red-700 sm:mb-3 sm:p-3">{{ error }}</div>
-        <ChatWindow :contact="selectedContact" :current-user="profile" @contact-changed="handleContactsChanged" />
+
+        <div
+          v-if="!hasExpandedChat"
+          class="msn-window grid h-full min-h-[200px] place-items-center rounded-xl border border-dashed border-sky-400 bg-white/70 p-8 text-center text-slate-500"
+        >
+          <div>
+            <p class="text-base font-semibold text-sky-900">Nenhuma conversa aberta</p>
+            <p class="mt-1 text-sm">
+              Selecione um contato ou clique em uma conversa minimizada na barra inferior.
+            </p>
+          </div>
+        </div>
+
+        <KeepAlive>
+          <ChatWindow
+            v-for="chat in openChats"
+            v-show="isChatExpanded(chat.id)"
+            :key="chat.id"
+            :contact="getOpenChatContact(chat.id)"
+            :current-user="profile"
+            @minimize="minimizeChat(chat.id)"
+            @close="closeChat(chat.id)"
+            @contact-changed="handleContactsChanged"
+          />
+        </KeepAlive>
       </div>
     </div>
+
+    <ChatTaskbar
+      :chats="minimizedChats"
+      @restore="restoreChat"
+      @close="closeChat"
+    />
 
     <OnlineNotifications
       :notifications="onlineNotifications"

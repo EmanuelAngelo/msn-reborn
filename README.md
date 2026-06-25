@@ -1,128 +1,193 @@
-# MSN Reborn - MVP Django REST + Vue
+# MSN Reborn
 
-Projeto inspirado no antigo MSN Messenger, com backend em Django REST Framework e frontend em Vue 3 + TailwindCSS.
+Messenger inspirado no **Windows Live Messenger (MSN)**, com backend em **Django REST Framework + Channels** e frontend em **Vue 3 + TailwindCSS**.
 
-Esta versão foi ajustada para desenvolvimento local usando **127.0.0.1 em tudo**. Isso evita o erro comum de sessão/CSRF em que o login funciona, mas o endpoint `/api/me/` retorna `403 Forbidden` porque o navegador trata `localhost` e `127.0.0.1` como origens diferentes para cookie de sessão.
+Experiência nostálgica com chat em tempo real, status de presença, nudge, música no perfil (Spotify) e interface responsiva para web e mobile.
 
-## Estrutura
+## Funcionalidades
+
+### Autenticação e perfil
+- Registro e login com **Token Authentication**
+- Perfil com nome, mensagem pessoal, foto e status (online, ausente, ocupado, invisível, offline)
+- Modo **invisível** — aparece como offline para os contatos
+- Upload de avatar com URLs de mídia compatíveis com Docker e proxy Nginx
+
+### Contatos e presença
+- Busca e adição de contatos com solicitações (aceitar/recusar)
+- **Favoritos** e **bloqueio** de contatos
+- Atualização em tempo real de status, nome, foto e música via WebSocket
+- **Notificação estilo MSN** quando um contato fica online (popup no canto inferior direito, some em 3s)
+
+### Chat
+- Conversas diretas 1:1
+- Mensagens em tempo real (WebSocket) com fallback por polling REST
+- Indicador **"está digitando..."** com animação
+- **Nudge** — chamar atenção com animação de tremor na tela
+- Marcação automática de mensagens como lidas
+- **Minimizar conversas** — barra inferior estilo MSN com várias conversas abertas
+- Histórico de até 100 mensagens por conversa
+
+### Música (Spotify)
+- OAuth com Spotify
+- Exibir faixa atual no perfil e na lista de contatos
+- Preferências de privacidade (visibilidade, capa, pausado)
+
+## Stack
+
+| Camada | Tecnologia |
+|--------|------------|
+| Backend | Django 5, DRF, Channels, Daphne |
+| Frontend | Vue 3, Vite, TailwindCSS 4 |
+| Tempo real | WebSockets + Redis (Docker) |
+| Banco | SQLite (padrão) / PostgreSQL (opcional) |
+| Docs API | drf-spectacular (Swagger/ReDoc) |
+
+## Estrutura do projeto
 
 ```text
-msn_reborn_project/
-├── core/
-├── msn/
-├── frontend/
+msn-reborn/
+├── core/                  # Settings, URLs, ASGI/WSGI
+├── msn/                   # Models, API, WebSockets, Spotify
+├── frontend/              # SPA Vue 3
+├── docker/                # Entrypoint e config Nginx
+├── docker-compose.yml
+├── Dockerfile
 ├── manage.py
 ├── requirements.txt
 ├── .env.example
 ├── API_GUIDE.md
-└── README.md
+├── SECURITY.md
+└── LICENSE                # MIT
 ```
-
-## 1. Configurar Spotify
-
-No Spotify Developer Dashboard, cadastre exatamente esta Redirect URI:
-
-```text
-http://127.0.0.1:8000/api/spotify/callback/
-```
-
-A URI precisa ser idêntica à do `.env`, incluindo a barra final `/`.
-
-> Importante: se você já compartilhou um Client Secret ou token em algum lugar, gere um novo Client Secret no painel do Spotify.
 
 ## Rodar com Docker (recomendado)
 
-Pré-requisito: Docker e Docker Compose instalados.
+Pré-requisitos: Docker e Docker Compose.
 
 ```bash
 cp .env.example .env
-# Edite .env se quiser configurar Spotify
+# Edite .env (Spotify, SECRET_KEY, etc.)
 
 docker compose up -d --build
 ```
 
-Acesse:
+| Serviço | URL |
+|---------|-----|
+| Frontend | http://127.0.0.1:8080 |
+| Backend / Swagger | http://127.0.0.1:8000/api/docs/ |
+| WebSocket | ws://127.0.0.1:8080/ws/ (via Nginx) |
 
-```text
-Frontend:  http://127.0.0.1:8080
-Backend:   http://127.0.0.1:8000/api/docs/
-```
-
-> As portas padrão são **8000** (backend) e **8080** (frontend).
-
-Serviços incluídos:
-
-- **backend** — Django + Daphne (REST + WebSocket)
-- **frontend** — Vue 3 via Nginx (proxy `/api` e `/ws`)
-- **redis** — Channel layer para tempo real entre instâncias
-
-Parar:
+Serviços: **backend** (Django + Daphne), **frontend** (Nginx + Vue), **redis** (channel layer).
 
 ```bash
-docker compose down
+docker compose down          # parar
+docker compose logs -f       # logs
+docker compose up -d --build # rebuild após mudanças
 ```
 
-## 2. Rodar backend (local sem Docker)
+## Rodar localmente (sem Docker)
 
-No Windows PowerShell, dentro da pasta do projeto:
+Use **127.0.0.1** de forma consistente (evita problemas de CORS/origem).
 
-```powershell
+### Backend
+
+```bash
 python -m venv venv
-.\venv\Scripts\activate
+source venv/bin/activate   # Linux/macOS
 pip install -r requirements.txt
-copy .env.example .env
-```
-
-Abra o arquivo `.env` e preencha:
-
-```env
-SPOTIFY_CLIENT_ID=seu_client_id_novo
-SPOTIFY_CLIENT_SECRET=seu_client_secret_novo
-SPOTIFY_REDIRECT_URI=http://127.0.0.1:8000/api/spotify/callback/
-FRONTEND_URL=http://127.0.0.1:5173
-```
-
-Depois rode:
-
-```powershell
-python manage.py makemigrations
-python manage.py makemigrations msn
+cp .env.example .env
 python manage.py migrate
-python manage.py createsuperuser
 python manage.py runserver 127.0.0.1:8000
 ```
 
-## 3. Rodar frontend
+### Frontend
 
-Em outro terminal:
-
-```powershell
+```bash
 cd frontend
 npm install
-copy .env.example .env
+cp .env.example .env
 npm run dev
 ```
 
-Acesse:
+Acesse: http://127.0.0.1:5173
 
-```text
-http://127.0.0.1:5173
+O Vite já faz proxy de `/api`, `/media` e `/ws` para o backend local.
+
+### Variáveis de ambiente (`.env`)
+
+```env
+APP_ENV=local
+DEBUG=True
+SECRET_KEY=sua-chave-secreta
+
+# Spotify (opcional)
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+
+# Redis (opcional — Docker usa redis://redis:6379/0)
+REDIS_URL=
+
+# PostgreSQL (opcional)
+# DATABASE_URL=postgres://user:pass@host:5432/msn
 ```
 
-## 4. Documentação da API
+### Frontend ( `frontend/.env` )
 
-Com o backend ligado:
-
-```text
-http://127.0.0.1:8000/api/docs/
-http://127.0.0.1:8000/api/redoc/
-http://127.0.0.1:8000/api/schema/
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
+VITE_WS_BASE_URL=ws://127.0.0.1:8000
+VITE_ENABLE_WEBSOCKETS=true
 ```
 
-## 5. Endpoints principais
+## Produção (PythonAnywhere + Vercel)
+
+### Backend (PythonAnywhere)
+
+No `.env` do servidor:
+
+```env
+APP_ENV=production
+DEBUG=False
+SECRET_KEY=chave-forte
+ALLOWED_HOSTS=127.0.0.1,localhost,emanuelangelo1992.pythonanywhere.com,.pythonanywhere.com
+CORS_ALLOWED_ORIGINS=https://msn-reborn-ochre.vercel.app
+SPOTIFY_CLIENT_ID=...
+SPOTIFY_CLIENT_SECRET=...
+```
+
+WebSocket no PythonAnywhere (plano padrão) **não está disponível** — o frontend usa polling REST automaticamente quando `VITE_ENABLE_WEBSOCKETS=false`.
+
+### Frontend (Vercel)
+
+```env
+VITE_API_BASE_URL=https://emanuelangelo1992.pythonanywhere.com/api
+VITE_ENABLE_WEBSOCKETS=false
+```
+
+## Spotify
+
+1. Crie um app em [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Cadastre a Redirect URI (local ou produção):
 
 ```text
-GET    /api/auth/csrf/
+http://127.0.0.1:8000/api/spotify/callback/
+https://emanuelangelo1992.pythonanywhere.com/api/spotify/callback/
+```
+
+3. Preencha `SPOTIFY_CLIENT_ID` e `SPOTIFY_CLIENT_SECRET` no `.env`
+4. No app: **Conectar/Sync Spotify**
+
+Scopes: `user-read-currently-playing`, `user-read-playback-state`, `user-read-private`
+
+## Documentação da API
+
+- Swagger: http://127.0.0.1:8000/api/docs/
+- ReDoc: http://127.0.0.1:8000/api/redoc/
+- Guia detalhado: [API_GUIDE.md](API_GUIDE.md)
+
+### Endpoints principais
+
+```text
 POST   /api/auth/register/
 POST   /api/auth/login/
 POST   /api/auth/logout/
@@ -130,10 +195,11 @@ GET    /api/me/
 PATCH  /api/me/
 PATCH  /api/me/status/
 
-GET    /api/users/search/?q=emanuel
+GET    /api/users/search/?q=nome
 GET    /api/contacts/
 POST   /api/contacts/{id}/block/
 POST   /api/contacts/{id}/favorite/
+
 GET    /api/contact-requests/
 POST   /api/contact-requests/
 POST   /api/contact-requests/{id}/accept/
@@ -146,51 +212,44 @@ POST   /api/conversations/{id}/messages/
 POST   /api/conversations/{id}/nudge/
 
 GET    /api/music/status/
-GET    /api/music/preferences/
 PATCH  /api/music/preferences/
 GET    /api/spotify/connect/
-GET    /api/spotify/callback/
 POST   /api/spotify/sync/
 ```
 
-## 6. Como testar o fluxo de contatos
-
-1. Crie dois usuários diferentes.
-2. Entre com o usuário A.
-3. Pesquise o e-mail ou nome do usuário B na área **Adicionar contatos**.
-4. Envie solicitação.
-5. Saia e entre com o usuário B.
-6. Aceite a solicitação.
-7. Os dois usuários passam a aparecer na lista de contatos.
-
-## 7. Como testar o Spotify
-
-1. Entre no sistema.
-2. Clique em **Conectar/Sync Spotify**.
-3. Autorize no Spotify.
-4. O backend volta para o frontend com `?spotify=connected`.
-5. Deixe alguma música tocando no Spotify.
-6. Clique novamente em **Conectar/Sync Spotify** para sincronizar.
-
-Para o status estilo MSN, o endpoint usado é:
+### WebSockets
 
 ```text
-https://api.spotify.com/v1/me/player/currently-playing
+ws://host/ws/presence/?token=SEU_TOKEN
+ws://host/ws/conversations/{id}/?token=SEU_TOKEN
 ```
 
-Scopes usados:
+## Como testar
 
-```text
-user-read-currently-playing user-read-playback-state user-read-private
-```
+### Contatos e chat
+1. Crie dois usuários em abas ou navegadores diferentes
+2. Envie e aceite solicitação de contato
+3. Abra a conversa, envie mensagens e teste o nudge
+4. Minimize com **`_`** na barra do chat — restaure pela barra inferior
 
-## 8. SQLite agora, PostgreSQL depois
+### Presença e notificações
+1. Usuário A: status **offline** → salvar → **online**
+2. Usuário B: deve ver popup *"acabou de ficar online"*
 
-O projeto continua usando SQLite no início, mas os models já foram feitos pensando em migração futura para PostgreSQL:
+### Digitação
+1. Com WebSocket ativo, digite em uma aba
+2. A outra exibe *"está digitando..."* com animação
 
-- UUIDField nas entidades principais.
-- ForeignKey e OneToOne bem definidos.
-- Constraints por migrations do Django.
-- Sem ArrayField, JSONField específico ou recursos exclusivos de PostgreSQL no MVP.
+## Segurança
 
-Quando for migrar, ajuste `DATABASES` no `core/settings.py` e rode as migrations no novo banco.
+- Nunca commite `.env`, tokens ou `SPOTIFY_CLIENT_SECRET`
+- Use variáveis de ambiente em produção
+- Consulte [SECURITY.md](SECURITY.md)
+
+## Licença
+
+Este projeto está sob a licença **MIT**. Veja [LICENSE](LICENSE).
+
+## Autor
+
+**Emanuel Coutinho** — projeto de estudo e homenagem ao MSN Messenger clássico.

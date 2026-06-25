@@ -718,4 +718,101 @@ body {
     bottom: .5rem;
     width: min(100vw - 1rem, 320px);
   }
+
+  .has-chat-taskbar .online-notifications {
+    bottom: 4.5rem;
+  }
+}
+
+/* ===== Barra de conversas minimizadas (estilo MSN) ===== */
+
+.chat-taskbar {
+  position: fixed;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 9990;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  max-width: min(100vw - 2rem, 720px);
+}
+
+.has-chat-taskbar .app-shell {
+  padding-bottom: 4.5rem;
+}
+
+.chat-taskbar-item {
+  width: 210px;
+  max-width: calc(100vw - 2rem);
+  border: 1px solid #005a9f;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.chat-taskbar-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 90, 159, .25);
+}
+
+.chat-taskbar-titlebar {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  padding: .35rem .45rem;
+}
+
+.chat-taskbar-avatar {
+  position: relative;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: .35rem;
+  border: 1px solid rgba(255, 255, 255, .45);
+  background: rgba(255, 255, 255, .25);
+}
+
+.chat-taskbar-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: .5rem;
+  height: .5rem;
+  border-radius: 999px;
+  border: 1px solid #fff;
+}
+
+.chat-taskbar-close {
+  display: grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: .2rem;
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+  font-size: .85rem;
+  line-height: 1;
+}
+
+.chat-taskbar-close:hover {
+  background: rgba(255, 255, 255, .35);
+}
+
+.msn-window-btn {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: none;
+  border-radius: .2rem;
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+  font-size: .85rem;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.msn-window-btn:hover {
+  background: rgba(255, 255, 255, .35);
 }
