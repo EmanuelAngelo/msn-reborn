@@ -19,6 +19,12 @@ function initials(name) {
     .map((item) => item[0]?.toUpperCase())
     .join('') || '🙂'
 }
+
+function subtitle(item) {
+  if (item.kind === 'message') return 'enviou uma mensagem'
+  if (item.kind === 'nudge') return 'chamou sua atenção!'
+  return 'acabou de ficar online'
+}
 </script>
 
 <template>
@@ -31,7 +37,7 @@ function initials(name) {
         role="status"
       >
         <header class="msn-titlebar online-toast-titlebar">
-          <span class="online-toast-title">MSN Reborn</span>
+          <span class="online-toast-title">Reborn</span>
           <button
             type="button"
             class="online-toast-close"
@@ -57,13 +63,19 @@ function initials(name) {
             <span v-else class="grid h-full w-full place-items-center text-sm font-bold text-sky-700">
               {{ initials(item.displayName) }}
             </span>
-            <span class="online-toast-dot"></span>
+            <span
+              class="online-toast-dot"
+              :class="{ 'online-toast-dot--message': item.kind === 'message' || item.kind === 'nudge' }"
+            ></span>
           </span>
 
           <span class="online-toast-text">
             <strong>{{ item.displayName }}</strong>
-            <span class="block text-[13px] text-sky-800">acabou de ficar online</span>
-            <span v-if="item.personalMessage" class="online-toast-message">
+            <span class="block text-[13px] text-sky-800">{{ subtitle(item) }}</span>
+            <span v-if="item.messagePreview" class="online-toast-message">
+              "{{ item.messagePreview }}"
+            </span>
+            <span v-else-if="item.personalMessage && item.kind === 'online'" class="online-toast-message">
               "{{ item.personalMessage }}"
             </span>
           </span>

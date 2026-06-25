@@ -384,6 +384,13 @@ class ConversationViewSet(viewsets.ModelViewSet):
         self._mark_messages_read(conversation, request.user)
         return Response(MessageSerializer(messages, many=True).data)
 
+    @action(detail=True, methods=['post'], url_path='typing')
+    def typing_signal(self, request, pk=None):
+        conversation = self.get_object()
+        is_typing = bool(request.data.get('is_typing', True))
+        broadcast_typing(conversation.id, request.user, is_typing)
+        return Response({'ok': True})
+
     @action(detail=True, methods=['post'])
     def nudge(self, request, pk=None):
         conversation = self.get_object()

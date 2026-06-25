@@ -11,7 +11,7 @@ import EmptyChatState from './components/EmptyChatState.vue'
 import LoginScreen from './components/LoginScreen.vue'
 import OnlineNotifications from './components/OnlineNotifications.vue'
 import { getMe, login as loginRequest, register as registerRequest, logout as logoutRequest } from './services/auth'
-import { getMusicStatus, listContacts, spotifyConnectUrl, syncSpotify } from './services/msn'
+import { getMusicStatus, listContacts, listConversations, spotifyConnectUrl, syncSpotify } from './services/msn'
 import { areWebSocketsEnabled } from './services/api'
 import { createPresenceSocket } from './services/presenceSocket'
 
@@ -28,6 +28,7 @@ const error = ref('')
 const refreshSignal = ref(0)
 const onlineNotifications = ref([])
 const activeNav = ref('profile')
+const contactTypingByUserId = ref({})
 
 const form = ref({
   email: '',
@@ -39,9 +40,14 @@ const form = ref({
 let presenceSocket = null
 let spotifyInterval = null
 let contactPollingInterval = null
+let messageNotificationPollingInterval = null
 const contactStatusCache = new Map()
+const lastKnownMessageIds = new Map()
+const seenNotificationMessageIds = new Set()
 const notificationTimers = new Map()
+const typingClearTimers = new Map()
 let presenceTrackingReady = false
+let messageTrackingReady = false
 
 function findContactByUserId(userId) {
   return contacts.value.find((item) => contactBelongsToUser(item, userId)) || null
@@ -56,6 +62,11 @@ function syncStatusCacheFromContacts() {
   }
 }
 
+function canReceiveNotifications() {
+  const status = profile.value?.status
+  return status === 'online' || status === 'away'
+}
+
 function dismissOnlineNotification(id) {
   onlineNotifications.value = onlineNotifications.value.filter((item) => item.id !== id)
   const timer = notificationTimers.get(id)
@@ -66,12 +77,18 @@ function dismissOnlineNotification(id) {
 }
 
 function pushOnlineNotification(payload) {
-  const id = payload.id || `${payload.userId}-${Date.now()}`
-  const entry = { ...payload, id }
+  if (!canReceiveNotifications()) return
+
+  const kind = payload.kind || 'online'
+  const id = payload.id || `${kind}-${payload.userId}-${payload.messageId || Date.now()}`
+  const entry = { ...payload, kind, id }
 
   onlineNotifications.value = [
     entry,
-    ...onlineNotifications.value.filter((item) => item.userId !== payload.userId),
+    ...onlineNotifications.value.filter((item) => {
+      if (payload.messageId) return item.messageId !== payload.messageId
+      return !(item.kind === 'online' && item.userId === payload.userId)
+    }),
   ].slice(0, 4)
 
   if (notificationTimers.has(id)) {
@@ -82,6 +99,28 @@ function pushOnlineNotification(payload) {
     id,
     setTimeout(() => dismissOnlineNotification(id), 3000),
   )
+}
+
+function handleIncomingMessage(message) {
+  if (!canReceiveNotifications()) return
+  if (!message?.id) return
+  if (seenNotificationMessageIds.has(message.id)) return
+  if (sameUserId(message.sender, profile.value?.user_id)) return
+
+  const contact = findContactByUserId(message.sender)
+  if (contact && isChatExpanded(contact.id)) return
+
+  seenNotificationMessageIds.add(message.id)
+
+  const isNudge = message.type === 'nudge'
+  pushOnlineNotification({
+    kind: isNudge ? 'nudge' : 'message',
+    userId: String(message.sender),
+    displayName: message.sender_name || contact?.nickname || contact?.contact_profile?.display_name || 'Contato',
+    avatarUrl: contact?.contact_profile?.avatar_url || '',
+    messagePreview: isNudge ? '' : (message.content || '').slice(0, 120),
+    messageId: message.id,
+  })
 }
 
 function notifyIfCameOnline(userId, newStatus, profileHint = null) {
@@ -122,6 +161,47 @@ function detectOnlineFromContacts(previousContacts) {
     }
     notifyIfCameOnline(userId, newStatus, item.contact_profile)
   }
+}
+
+function getRemoteTyping(contact) {
+  if (!contact) return null
+  const userId = String(contact.contact_profile?.user_id || contact.contact || '')
+  return contactTypingByUserId.value[userId] || null
+}
+
+function applyRemoteTyping(event) {
+  const senderId = String(event.user?.id || '')
+  if (!senderId || sameUserId(senderId, profile.value?.user_id)) return
+
+  if (typingClearTimers.has(senderId)) {
+    clearTimeout(typingClearTimers.get(senderId))
+    typingClearTimers.delete(senderId)
+  }
+
+  if (!event.is_typing) {
+    const next = { ...contactTypingByUserId.value }
+    delete next[senderId]
+    contactTypingByUserId.value = next
+    return
+  }
+
+  contactTypingByUserId.value = {
+    ...contactTypingByUserId.value,
+    [senderId]: {
+      isTyping: true,
+      displayName: event.user?.display_name || event.user?.username || 'Contato',
+    },
+  }
+
+  typingClearTimers.set(
+    senderId,
+    setTimeout(() => {
+      const next = { ...contactTypingByUserId.value }
+      delete next[senderId]
+      contactTypingByUserId.value = next
+      typingClearTimers.delete(senderId)
+    }, 3500),
+  )
 }
 
 function openContactFromNotification(notification) {
@@ -325,9 +405,13 @@ async function loadDashboard() {
   await refreshContacts()
   music.value = await getMusicStatus()
   refreshSignal.value++
+  await bootstrapMessageTracking()
   enablePresenceTracking()
   startPresenceSocket()
   startSpotifyAutoSync()
+  if (!areWebSocketsEnabled()) {
+    startMessageNotificationPolling()
+  }
 }
 
 function startPresenceSocket() {
@@ -369,6 +453,14 @@ function startPresenceSocket() {
         applyContactMusicUpdate(event.user_id, event.music)
       },
 
+      onMessageReceived(event) {
+        handleIncomingMessage(event.message)
+      },
+
+      onTypingUpdated(event) {
+        applyRemoteTyping(event)
+      },
+
       onError() {
         startContactPolling()
       },
@@ -402,12 +494,86 @@ function startContactPolling() {
       // Mantém o frontend funcionando quando WebSocket não está disponível.
     }
   }, 5000)
+
+  startMessageNotificationPolling()
 }
 
 function stopContactPolling() {
   if (contactPollingInterval) {
     clearInterval(contactPollingInterval)
     contactPollingInterval = null
+  }
+}
+
+async function bootstrapMessageTracking() {
+  try {
+    const conversations = await listConversations()
+    for (const conv of conversations) {
+      const last = conv.last_message
+      if (last?.id) {
+        lastKnownMessageIds.set(conv.id, last.id)
+        seenNotificationMessageIds.add(last.id)
+      }
+    }
+  } catch {
+    // Sem conversas ainda ou API indisponível.
+  } finally {
+    messageTrackingReady = true
+  }
+}
+
+async function pollMessageNotifications() {
+  if (!profile.value) return
+
+  try {
+    const conversations = await listConversations()
+    for (const conv of conversations) {
+      const last = conv.last_message
+      if (!last?.id) continue
+
+      const previousId = lastKnownMessageIds.get(conv.id)
+      lastKnownMessageIds.set(conv.id, last.id)
+
+      if (!previousId) {
+        if (messageTrackingReady && !sameUserId(last.sender, profile.value?.user_id)) {
+          handleIncomingMessage({
+            id: last.id,
+            sender: last.sender,
+            sender_name: last.sender_name,
+            type: last.type,
+            content: last.content,
+            conversation: conv.id,
+          })
+        }
+        continue
+      }
+
+      if (previousId !== last.id) {
+        handleIncomingMessage({
+          id: last.id,
+          sender: last.sender,
+          sender_name: last.sender_name,
+          type: last.type,
+          content: last.content,
+          conversation: conv.id,
+        })
+      }
+    }
+  } catch {
+    // Ignora falhas temporárias de rede.
+  }
+}
+
+function startMessageNotificationPolling() {
+  if (messageNotificationPollingInterval) return
+
+  messageNotificationPollingInterval = setInterval(pollMessageNotifications, 4000)
+}
+
+function stopMessageNotificationPolling() {
+  if (messageNotificationPollingInterval) {
+    clearInterval(messageNotificationPollingInterval)
+    messageNotificationPollingInterval = null
   }
 }
 
@@ -492,6 +658,14 @@ function handleProfileUpdated(updatedProfile) {
   if (profile.value?.user_id) {
     applyContactProfileUpdate(profile.value.user_id, updatedProfile)
   }
+  if (!canReceiveNotifications()) {
+    onlineNotifications.value.forEach((item) => {
+      const timer = notificationTimers.get(item.id)
+      if (timer) clearTimeout(timer)
+    })
+    onlineNotifications.value = []
+    notificationTimers.clear()
+  }
   refreshSignal.value++
 }
 
@@ -499,6 +673,7 @@ async function logout() {
   stopSpotifyAutoSync()
   stopPresenceSocket()
   stopContactPolling()
+  stopMessageNotificationPolling()
   try {
     await logoutRequest()
   } catch {
@@ -512,10 +687,16 @@ async function logout() {
   activeChatId.value = null
   minimizedChatIds.value = []
   onlineNotifications.value = []
+  contactTypingByUserId.value = {}
   contactStatusCache.clear()
+  lastKnownMessageIds.clear()
+  seenNotificationMessageIds.clear()
   presenceTrackingReady = false
+  messageTrackingReady = false
   notificationTimers.forEach((timer) => clearTimeout(timer))
   notificationTimers.clear()
+  typingClearTimers.forEach((timer) => clearTimeout(timer))
+  typingClearTimers.clear()
   error.value = ''
 }
 
@@ -558,8 +739,11 @@ onBeforeUnmount(() => {
   stopSpotifyAutoSync()
   stopPresenceSocket()
   stopContactPolling()
+  stopMessageNotificationPolling()
   notificationTimers.forEach((timer) => clearTimeout(timer))
   notificationTimers.clear()
+  typingClearTimers.forEach((timer) => clearTimeout(timer))
+  typingClearTimers.clear()
 })
 </script>
 
@@ -607,6 +791,7 @@ onBeforeUnmount(() => {
                 :key="chat.id"
                 :contact="getOpenChatContact(chat.id)"
                 :current-user="profile"
+                :remote-typing="getRemoteTyping(getOpenChatContact(chat.id))"
                 @minimize="minimizeChat(chat.id)"
                 @close="closeChat(chat.id)"
                 @contact-changed="handleContactsChanged"
@@ -637,6 +822,7 @@ onBeforeUnmount(() => {
                 :key="chat.id"
                 :contact="getOpenChatContact(chat.id)"
                 :current-user="profile"
+                :remote-typing="getRemoteTyping(getOpenChatContact(chat.id))"
                 @minimize="minimizeChat(chat.id)"
                 @close="closeChat(chat.id)"
                 @contact-changed="handleContactsChanged"
@@ -677,6 +863,7 @@ onBeforeUnmount(() => {
                 :key="chat.id"
                 :contact="getOpenChatContact(chat.id)"
                 :current-user="profile"
+                :remote-typing="getRemoteTyping(getOpenChatContact(chat.id))"
                 @minimize="minimizeChat(chat.id)"
                 @close="closeChat(chat.id)"
                 @contact-changed="handleContactsChanged"

@@ -44,7 +44,8 @@ body {
   100% { transform: translateX(0); }
 }
 
-.screen-shake {
+.screen-shake,
+.reborn-app.screen-shake {
   animation: msn-shake 0.5s;
 }
 
@@ -1712,6 +1713,11 @@ body {
   border: 2px solid #fff;
   background: #29cc63;
   box-shadow: 0 0 6px rgba(41, 204, 99, .6);
+}
+
+.online-toast-dot--message {
+  background: #38bdf8;
+  box-shadow: 0 0 6px rgba(56, 189, 248, .55);
 }
 
 .online-toast-text {

@@ -3,9 +3,14 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.utils import timezone
 from rest_framework.authtoken.models import Token
 
-from .chat_events import message_to_ws_payload
+from .chat_events import broadcast_typing as broadcast_typing_event, message_to_ws_payload
 from .presence import get_public_status
 from .models import Conversation, ConversationParticipant, Message, UserProfile
+
+
+@database_sync_to_async
+def broadcast_typing_event_async(conversation_id, user, is_typing):
+    broadcast_typing_event(conversation_id, user, is_typing)
 
 
 def extract_token(query_string: bytes):
@@ -110,6 +115,24 @@ class PresenceConsumer(AsyncJsonWebsocketConsumer):
                 'type': 'music_status_updated',
                 'user_id': event.get('user_id'),
                 'music': event.get('music'),
+            }
+        )
+
+    async def message_received(self, event):
+        await self.send_json(
+            {
+                'type': 'message_received',
+                'message': event.get('message'),
+            }
+        )
+
+    async def typing_updated(self, event):
+        await self.send_json(
+            {
+                'type': 'typing_updated',
+                'conversation_id': event.get('conversation_id'),
+                'user': event.get('user'),
+                'is_typing': event.get('is_typing'),
             }
         )
 
@@ -231,15 +254,7 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         )
 
     async def broadcast_typing(self, is_typing):
-        user_payload = await self.get_typing_user_payload()
-        await self.channel_layer.group_send(
-            self.group_name,
-            {
-                'type': 'chat.typing',
-                'user': user_payload,
-                'is_typing': is_typing,
-            },
-        )
+        await broadcast_typing_event_async(self.conversation_id, self.user, is_typing)
 
     async def chat_message(self, event):
         await self.send_json({'type': 'message.created', 'message': event['message']})
@@ -257,16 +272,6 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 'is_typing': event['is_typing'],
             }
         )
-
-    @database_sync_to_async
-    def get_typing_user_payload(self):
-        profile = self.user.profile
-        return {
-            'id': str(self.user.id),
-            'username': self.user.username,
-            'email': self.user.email,
-            'display_name': profile.display_name or self.user.username,
-        }
 
     @database_sync_to_async
     def get_user_by_token(self, token_key):

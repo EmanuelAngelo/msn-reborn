@@ -157,6 +157,25 @@ SPOTIFY_CLIENT_SECRET=...
 
 WebSocket no PythonAnywhere (plano padrão) **não está disponível** — o frontend usa polling REST automaticamente quando `VITE_ENABLE_WEBSOCKETS=false`.
 
+**Avatares e mídia (`/media/`):**
+
+1. Faça deploy do código atualizado e **Reload** no painel Web do PythonAnywhere.
+2. A pasta `media/` **não vai para o Git** — fotos enviadas no ambiente local **não existem** no servidor de produção. É preciso **enviar a foto de perfil de novo** logado em produção (Vercel + PA).
+3. Garanta que o diretório `media/` exista e seja gravável no servidor:
+
+```bash
+mkdir -p ~/msn-reborn/media/avatars
+chmod 755 ~/msn-reborn/media
+```
+
+4. *(Opcional, mais rápido)* No painel **Web → Static files**, mapeie:
+
+| URL            | Directory                          |
+|----------------|------------------------------------|
+| `/media/`      | `/home/SEU_USUARIO/msn-reborn/media/` |
+
+Substitua `SEU_USUARIO` pelo seu usuário do PythonAnywhere.
+
 ### Frontend (Vercel)
 
 ```env

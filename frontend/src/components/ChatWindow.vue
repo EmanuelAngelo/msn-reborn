@@ -2,7 +2,15 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { areWebSocketsEnabled } from '../services/api'
 import { createChatSocket } from '../services/chatSocket'
-import { listMessages, openDirectConversation, sendMessage as sendMessageRest, sendNudge as sendNudgeRest, blockContact, toggleFavoriteContact } from '../services/msn'
+import {
+  listMessages,
+  openDirectConversation,
+  sendMessage as sendMessageRest,
+  sendNudge as sendNudgeRest,
+  sendTypingSignal,
+  blockContact,
+  toggleFavoriteContact,
+} from '../services/msn'
 
 const props = defineProps({
   contact: {
@@ -10,6 +18,10 @@ const props = defineProps({
     default: null,
   },
   currentUser: {
+    type: Object,
+    default: null,
+  },
+  remoteTyping: {
     type: Object,
     default: null,
   },
@@ -33,16 +45,23 @@ function statusLabel(status) {
 const conversation = ref(null)
 const messages = ref([])
 const newMessage = ref('')
-const isContactTyping = ref(false)
-const typingDisplayName = ref('')
+const internalTyping = ref(false)
+const internalTypingName = ref('')
 const connecting = ref(false)
 const error = ref('')
 const messageBox = ref(null)
 
+const isContactTyping = computed(() => Boolean(props.remoteTyping?.isTyping || internalTyping.value))
+const typingDisplayName = computed(() =>
+  props.remoteTyping?.displayName || internalTypingName.value || contactDisplayName()
+)
+
 let chatSocket = null
 let typingTimeout = null
 let typingClearTimeout = null
+let typingRestDebounce = null
 let messagePollingInterval = null
+const knownMessageIds = new Set()
 
 function contactDisplayName() {
   return props.contact?.contact_profile?.display_name
@@ -50,9 +69,9 @@ function contactDisplayName() {
     || 'Contato'
 }
 
-function clearTypingIndicator() {
-  isContactTyping.value = false
-  typingDisplayName.value = ''
+function clearInternalTypingIndicator() {
+  internalTyping.value = false
+  internalTypingName.value = ''
   if (typingClearTimeout) {
     clearTimeout(typingClearTimeout)
     typingClearTimeout = null
@@ -60,19 +79,34 @@ function clearTypingIndicator() {
 }
 
 function showTypingIndicator(user, isTyping) {
-  if (!isTyping) {
-    clearTypingIndicator()
+  const contactId = getContactUserId()
+  if (contactId && user?.id && String(user.id) !== String(contactId)) {
     return
   }
 
-  typingDisplayName.value = user?.display_name || user?.username || contactDisplayName()
-  isContactTyping.value = true
+  if (!isTyping) {
+    clearInternalTypingIndicator()
+    return
+  }
+
+  internalTypingName.value = user?.display_name || user?.username || contactDisplayName()
+  internalTyping.value = true
   scrollToBottom()
 
   if (typingClearTimeout) clearTimeout(typingClearTimeout)
   typingClearTimeout = setTimeout(() => {
-    isContactTyping.value = false
+    internalTyping.value = false
   }, 3500)
+}
+
+function triggerScreenShake() {
+  document.body.classList.add('screen-shake')
+  const app = document.querySelector('.reborn-app')
+  if (app) app.classList.add('screen-shake')
+  window.setTimeout(() => {
+    document.body.classList.remove('screen-shake')
+    if (app) app.classList.remove('screen-shake')
+  }, 500)
 }
 
 function messageFromContact(message) {
@@ -97,6 +131,7 @@ function addMessage(message) {
   if (!message?.id) return
   if (messages.value.some((item) => item.id === message.id)) return
   messages.value.push(message)
+  knownMessageIds.add(message.id)
   sortMessages()
 }
 
@@ -106,7 +141,20 @@ function setMessagesWithoutDuplicates(newMessages) {
     if (message?.id) map.set(message.id, message)
   }
   messages.value = Array.from(map.values())
+  for (const message of messages.value) {
+    if (message?.id) knownMessageIds.add(message.id)
+  }
   sortMessages()
+}
+
+function detectNewMessagesFromPoll(updatedMessages) {
+  for (const message of updatedMessages) {
+    if (!message?.id || knownMessageIds.has(message.id)) continue
+    knownMessageIds.add(message.id)
+    if (message.type === 'nudge' && messageFromContact(message)) {
+      triggerScreenShake()
+    }
+  }
 }
 
 async function scrollToBottom() {
@@ -119,6 +167,10 @@ async function scrollToBottom() {
 async function loadHistory() {
   if (!conversation.value?.id) return
   messages.value = await listMessages(conversation.value.id)
+  knownMessageIds.clear()
+  for (const message of messages.value) {
+    if (message?.id) knownMessageIds.add(message.id)
+  }
   await scrollToBottom()
 }
 
@@ -134,8 +186,6 @@ function connectSocket() {
 
   disconnectSocket()
 
-  // PythonAnywhere não entrega WebSocket neste deploy. Quando estiver desativado,
-  // usamos somente atualização automática por REST, sem exibir erro visual.
   if (!areWebSocketsEnabled()) {
     startMessagePolling()
     return
@@ -146,16 +196,17 @@ function connectSocket() {
       onMessage(message) {
         addMessage(message)
         if (messageFromContact(message)) {
-          clearTypingIndicator()
+          clearInternalTypingIndicator()
         }
         scrollToBottom()
       },
 
       onNudge(message) {
         addMessage(message)
-        clearTypingIndicator()
-        document.body.classList.add('screen-shake')
-        setTimeout(() => document.body.classList.remove('screen-shake'), 500)
+        clearInternalTypingIndicator()
+        if (messageFromContact(message)) {
+          triggerScreenShake()
+        }
         scrollToBottom()
       },
 
@@ -164,7 +215,6 @@ function connectSocket() {
       },
 
       onError() {
-        // Não mostra erro na tela porque o fallback REST assume o chat.
         startMessagePolling()
       },
 
@@ -181,7 +231,6 @@ function connectSocket() {
   }
 }
 
-
 function startMessagePolling() {
   if (messagePollingInterval || !conversation.value?.id) return
 
@@ -190,6 +239,7 @@ function startMessagePolling() {
 
     try {
       const updatedMessages = await listMessages(conversation.value.id)
+      detectNewMessagesFromPoll(updatedMessages)
       const before = messages.value.length
       setMessagesWithoutDuplicates(updatedMessages)
       if (messages.value.length !== before) await scrollToBottom()
@@ -210,8 +260,9 @@ async function openConversation() {
   stopMessagePolling()
   disconnectSocket()
   messages.value = []
+  knownMessageIds.clear()
   conversation.value = null
-  clearTypingIndicator()
+  clearInternalTypingIndicator()
   error.value = ''
 
   const contactUserId = getContactUserId()
@@ -255,6 +306,8 @@ async function sendMessage() {
 async function sendNudge() {
   if (!conversation.value?.id) return
 
+  triggerScreenShake()
+
   if (chatSocket?.readyState === WebSocket.OPEN) {
     chatSocket.sendNudge()
     return
@@ -263,8 +316,6 @@ async function sendNudge() {
   try {
     const message = await sendNudgeRest(conversation.value.id)
     addMessage(message)
-    document.body.classList.add('screen-shake')
-    setTimeout(() => document.body.classList.remove('screen-shake'), 500)
     await scrollToBottom()
     startMessagePolling()
   } catch {
@@ -294,38 +345,66 @@ async function handleToggleFavorite() {
     error.value = 'Não foi possível atualizar favorito.'
   }
 }
+
+function emitTypingRest(isTyping) {
+  if (!conversation.value?.id) return
+  sendTypingSignal(conversation.value.id, isTyping).catch(() => {})
+}
+
 function stopTypingSignal() {
   if (typingTimeout) {
     clearTimeout(typingTimeout)
     typingTimeout = null
   }
+  if (typingRestDebounce) {
+    clearTimeout(typingRestDebounce)
+    typingRestDebounce = null
+  }
+
   if (chatSocket?.readyState === WebSocket.OPEN) {
     chatSocket.typingStop()
+  } else {
+    emitTypingRest(false)
   }
 }
 
 function handleTyping() {
-  if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) return
+  if (!conversation.value?.id) return
 
   if (!newMessage.value.trim()) {
     stopTypingSignal()
     return
   }
 
-  chatSocket.typingStart()
+  const socketReady = chatSocket?.readyState === WebSocket.OPEN
+
+  if (socketReady) {
+    chatSocket.typingStart()
+  } else {
+    if (typingRestDebounce) clearTimeout(typingRestDebounce)
+    typingRestDebounce = setTimeout(() => emitTypingRest(true), 150)
+  }
+
   clearTimeout(typingTimeout)
   typingTimeout = setTimeout(stopTypingSignal, 2000)
 }
 
 watch(
+  () => props.remoteTyping?.isTyping,
+  (isTyping) => {
+    if (isTyping) scrollToBottom()
+  },
+)
+
+watch(
   () => props.contact?.id,
   () => openConversation(),
-  { immediate: true }
+  { immediate: true },
 )
 
 onBeforeUnmount(() => {
   stopTypingSignal()
-  clearTypingIndicator()
+  clearInternalTypingIndicator()
   stopMessagePolling()
   disconnectSocket()
 })

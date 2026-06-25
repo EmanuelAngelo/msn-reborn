@@ -35,6 +35,11 @@ export async function openDirectConversation(contactId) {
   return data
 }
 
+export async function listConversations() {
+  const { data } = await api.get('/conversations/')
+  return data.results || data
+}
+
 export async function listMessages(conversationId) {
   const { data } = await api.get(`/conversations/${conversationId}/messages/`)
   return data
@@ -43,6 +48,10 @@ export async function listMessages(conversationId) {
 export async function sendMessage(conversationId, content) {
   const { data } = await api.post(`/conversations/${conversationId}/messages/`, { type: 'text', content })
   return data
+}
+
+export async function sendTypingSignal(conversationId, isTyping) {
+  await api.post(`/conversations/${conversationId}/typing/`, { is_typing: isTyping })
 }
 
 export async function sendNudge(conversationId) {

@@ -48,6 +48,14 @@ export function createPresenceSocket(callbacks = {}) {
     if (data.type === 'music_status_updated') {
       callbacks.onMusicStatusUpdated?.(data)
     }
+
+    if (data.type === 'message_received') {
+      callbacks.onMessageReceived?.(data)
+    }
+
+    if (data.type === 'typing_updated') {
+      callbacks.onTypingUpdated?.(data)
+    }
   }
 
   socket.onerror = (error) => {
