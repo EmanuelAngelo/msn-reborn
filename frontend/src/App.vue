@@ -4,6 +4,7 @@ import ContactList from './components/ContactList.vue'
 import ContactManager from './components/ContactManager.vue'
 import ChatWindow from './components/ChatWindow.vue'
 import ProfilePanel from './components/ProfilePanel.vue'
+import LoginScreen from './components/LoginScreen.vue'
 import { getMe, login as loginRequest, register as registerRequest, logout as logoutRequest } from './services/auth'
 import { getMusicStatus, listContacts, spotifyConnectUrl, syncSpotify } from './services/msn'
 import { areWebSocketsEnabled } from './services/api'
@@ -260,11 +261,26 @@ async function logout() {
   stopSpotifyAutoSync()
   stopPresenceSocket()
   stopContactPolling()
-  await logoutRequest()
+  try {
+    await logoutRequest()
+  } catch {
+    // Estado local é limpo mesmo se a API falhar.
+  }
   profile.value = null
   contacts.value = []
   music.value = null
   selectedContact.value = null
+  error.value = ''
+}
+
+function handleAuthSubmit() {
+  if (mode.value === 'login') login()
+  else register()
+}
+
+function toggleAuthMode() {
+  mode.value = mode.value === 'login' ? 'register' : 'login'
+  error.value = ''
 }
 
 onMounted(async () => {
@@ -288,65 +304,45 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="h-screen overflow-hidden p-4 md:p-8">
-    <div v-if="!profile" class="mx-auto max-w-md overflow-hidden rounded-xl border border-sky-700 bg-white/95 shadow-2xl">
-      <div class="msn-titlebar px-4 py-3 text-center text-lg font-bold text-white">
-        MSN Reborn
-      </div>
-      <div class="space-y-4 p-6">
-        <div class="text-center">
-          <div class="mx-auto grid h-20 w-20 place-items-center rounded-2xl border border-sky-500 bg-sky-50 text-4xl shadow-inner">🙂</div>
-          <h1 class="mt-3 text-xl font-bold text-slate-800">Entrar no Messenger</h1>
-          <p class="text-sm text-slate-500">MVP integrado com Django REST API</p>
-        </div>
+  <LoginScreen
+    v-if="!profile"
+    :mode="mode"
+    :form="form"
+    :loading="loading"
+    :error="error"
+    @submit="handleAuthSubmit"
+    @toggle-mode="toggleAuthMode"
+  />
 
-        <div v-if="error" class="rounded bg-red-50 p-3 text-sm text-red-700">{{ error }}</div>
-
-        <input v-model="form.email" class="w-full rounded border border-sky-300 px-3 py-2" placeholder="E-mail" />
-        <input v-if="mode === 'register'" v-model="form.username" class="w-full rounded border border-sky-300 px-3 py-2" placeholder="Usuário" />
-        <input v-if="mode === 'register'" v-model="form.display_name" class="w-full rounded border border-sky-300 px-3 py-2" placeholder="Nome de exibição" />
-        <input v-model="form.password" type="password" class="w-full rounded border border-sky-300 px-3 py-2" placeholder="Senha" />
-
-        <button
-          class="w-full rounded bg-sky-600 px-4 py-2 font-bold text-white shadow hover:bg-sky-700 disabled:opacity-60"
-          :disabled="loading"
-          @click="mode === 'login' ? login() : register()"
-        >
-          {{ loading ? 'Aguarde...' : mode === 'login' ? 'Entrar' : 'Criar conta' }}
-        </button>
-
-        <button class="w-full text-sm font-semibold text-sky-700" @click="mode = mode === 'login' ? 'register' : 'login'">
-          {{ mode === 'login' ? 'Criar nova conta' : 'Já tenho conta' }}
-        </button>
-      </div>
-    </div>
-
-    <div v-else class="mx-auto grid h-full max-w-7xl grid-cols-1 gap-6 overflow-hidden lg:grid-cols-[360px_minmax(0,1fr)]">
-      <section class="msn-window flex min-h-0 flex-col overflow-hidden rounded-xl border border-sky-700 bg-white/90">
-        <div class="msn-titlebar flex items-center justify-between px-4 py-2 text-white">
+  <main v-else class="app-shell">
+    <div class="app-dashboard app-dashboard-mobile-stack">
+      <section class="msn-window app-sidebar rounded-xl border border-sky-700 bg-white/90">
+        <div class="msn-titlebar flex shrink-0 items-center justify-between px-3 py-2 text-white sm:px-4">
           <div class="flex items-center gap-2">
             <div class="h-4 w-4 rounded-full bg-lime-300 shadow-inner"></div>
-            <span class="font-bold">MSN Reborn</span>
+            <span class="font-bold text-sm sm:text-base">MSN Reborn</span>
           </div>
-          <div class="flex gap-2">
-            <button class="rounded bg-white/20 px-2 py-1 text-xs" @click="refreshSpotify">Conectar/Sync Spotify</button>
-            <button class="rounded bg-white/20 px-2 py-1 text-xs" @click="logout">Sair</button>
+          <div class="flex gap-1 sm:gap-2">
+            <button class="rounded bg-white/20 px-2 py-1 text-[10px] sm:text-xs" @click="refreshSpotify">
+              Spotify
+            </button>
+            <button class="rounded bg-white/20 px-2 py-1 text-[10px] sm:text-xs" @click="logout">Sair</button>
           </div>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-y-auto">
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <ProfilePanel :profile="profile" :music="music" @updated="handleProfileUpdated" />
           <ContactList :contacts="contacts" :selected-id="selectedContact?.id" @select="selectedContact = $event" />
           <ContactManager
-          :current-user-id="profile.user_id"
-          :refresh-signal="refreshSignal"
-          @changed="handleContactsChanged"
+            :current-user-id="profile.user_id"
+            :refresh-signal="refreshSignal"
+            @changed="handleContactsChanged"
           />
         </div>
       </section>
 
-      <div class="min-h-0 overflow-hidden">
-        <div v-if="error" class="mb-3 rounded bg-red-50 p-3 text-sm text-red-700">{{ error }}</div>
+      <div class="app-chat min-h-0">
+        <div v-if="error" class="mb-2 rounded bg-red-50 p-2 text-sm text-red-700 sm:mb-3 sm:p-3">{{ error }}</div>
         <ChatWindow :contact="selectedContact" :current-user="profile" @contact-changed="handleContactsChanged" />
       </div>
     </div>

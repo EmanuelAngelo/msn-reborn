@@ -27,8 +27,9 @@ export async function updateMe(payload) {
 
 export async function logout() {
   try {
-    const { data } = await api.post('/auth/logout/')
-    return data
+    await api.post('/auth/logout/')
+  } catch {
+    // Limpa sessão local mesmo se o servidor não responder.
   } finally {
     clearAuthToken()
   }

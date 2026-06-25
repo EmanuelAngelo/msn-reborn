@@ -7,7 +7,7 @@ import requests
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
-from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.contrib.auth import authenticate, get_user_model
 from django.core import signing
 from django.db.models import Q
 from django.shortcuts import redirect
@@ -95,7 +95,6 @@ def register(request):
     user = serializer.save()
     user.profile.status = user.profile.Status.ONLINE
     user.profile.save(update_fields=['status', 'updated_at'])
-    login(request, user)
     broadcast_user_status(user)
     return Response(auth_payload(user), status=status.HTTP_201_CREATED)
 
@@ -110,7 +109,6 @@ def login_view(request):
         return Response({'detail': 'Credenciais inválidas.'}, status=status.HTTP_400_BAD_REQUEST)
     user.profile.status = user.profile.Status.ONLINE
     user.profile.save(update_fields=['status', 'updated_at'])
-    login(request, user)
     broadcast_user_status(user)
     return Response(auth_payload(user))
 
@@ -124,7 +122,6 @@ def logout_view(request):
         broadcast_user_status(request.user)
     if request.user.is_authenticated:
         Token.objects.filter(user=request.user).delete()
-    logout(request)
     return Response({'detail': 'Logout realizado com sucesso.'})
 
 

@@ -44,11 +44,11 @@ docker compose up -d --build
 Acesse:
 
 ```text
-Frontend:  http://127.0.0.1:8081
-Backend:   http://127.0.0.1:8010/api/docs/
+Frontend:  http://127.0.0.1:8080
+Backend:   http://127.0.0.1:8000/api/docs/
 ```
 
-> As portas padrão são **8010** (backend) e **8081** (frontend) para evitar conflito com outros projetos. Ajuste em `docker-compose.yml` se necessário.
+> As portas padrão são **8000** (backend) e **8080** (frontend).
 
 Serviços incluídos:
 
